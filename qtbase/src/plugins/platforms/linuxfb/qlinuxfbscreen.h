@@ -39,6 +39,8 @@ private:
     } mMmap;
 
     QPainter *mBlitter;
+
+    int mRotation;
 };
 
 QT_END_NAMESPACE

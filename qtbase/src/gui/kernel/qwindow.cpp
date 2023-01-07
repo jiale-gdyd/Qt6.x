@@ -445,10 +445,14 @@ void QWindowPrivate::updateSiblingPosition(SiblingPosition position)
 
 bool QWindowPrivate::windowRecreationRequired(QScreen *newScreen) const
 {
+#if 0 // Recreating window is unstable
     Q_Q(const QWindow);
     const QScreen *oldScreen = q->screen();
     return oldScreen != newScreen && (platformWindow || !oldScreen)
         && !(oldScreen && oldScreen->virtualSiblings().contains(newScreen));
+#else
+    return false;
+#endif
 }
 
 void QWindowPrivate::disconnectFromScreen()
@@ -873,8 +877,6 @@ QSurfaceFormat QWindow::format() const
 void QWindow::setFlags(Qt::WindowFlags flags)
 {
     Q_D(QWindow);
-    if (d->windowFlags == flags)
-        return;
 
     if (d->platformWindow)
         d->platformWindow->setWindowFlags(flags);

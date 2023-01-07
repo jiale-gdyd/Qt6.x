@@ -11,6 +11,9 @@
 
 QT_BEGIN_NAMESPACE
 
+QImage * QFbBackingStore::gScreenImage = NULL;
+QImage * QFbBackingStore::gFbImage = NULL;
+
 QFbBackingStore::QFbBackingStore(QWindow *window)
     : QPlatformBackingStore(window)
 {
@@ -40,15 +43,33 @@ void QFbBackingStore::resize(const QSize &size, const QRegion &staticContents)
         mImage = QImage(size, window()->screen()->handle()->format());
 }
 
-const QImage QFbBackingStore::image()
+QPaintDevice *QFbBackingStore::paintDevice()
 {
-    return mImage;
-}
+    // HACK: gScreenImage available means allowing directly painting
+    if (!gScreenImage)
+        return &mImage;
 
+    // HACK: Prefer directly painting to fb when it's available
+    if (gFbImage)
+        return gFbImage;
+
+    return gScreenImage;
+}
 
 QImage QFbBackingStore::toImage() const
 {
-    return mImage;
+    if (!gScreenImage)
+        return mImage;
+
+    if (gFbImage)
+        return *gFbImage;
+
+    return *gScreenImage;
+}
+
+const QImage QFbBackingStore::image()
+{
+    return toImage();
 }
 
 void QFbBackingStore::lock()

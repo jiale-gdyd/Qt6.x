@@ -1178,6 +1178,12 @@ namespace Qt {
         KeepAspectRatioByExpanding
     };
 
+    enum FlushMode {
+        EmptyFrame,
+        FirstFrame,
+        LastFrame
+    };
+
     enum DockWidgetArea {
         LeftDockWidgetArea = 0x1,
         RightDockWidgetArea = 0x2,
@@ -1742,6 +1748,7 @@ namespace Qt {
     Q_ENUM_NS(CursorShape)
     Q_ENUM_NS(GlobalColor)
     Q_ENUM_NS(AspectRatioMode)
+    Q_ENUM_NS(FlushMode)
     Q_ENUM_NS(TransformationMode)
     Q_FLAG_NS(ImageConversionFlags)
     Q_ENUM_NS(Key)

@@ -128,7 +128,23 @@ EGLNativeDisplayType QEglFSDeviceIntegration::platformDisplay() const
 
 EGLDisplay QEglFSDeviceIntegration::createDisplay(EGLNativeDisplayType nativeDisplay)
 {
-    return eglGetDisplay(nativeDisplay);
+    EGLDisplay display;
+
+    PFNEGLGETPLATFORMDISPLAYEXTPROC get_platform_display =
+        reinterpret_cast<PFNEGLGETPLATFORMDISPLAYEXTPROC>(eglGetProcAddress("eglGetPlatformDisplayEXT"));
+
+    if (get_platform_display) {
+        display = get_platform_display(EGL_PLATFORM_GBM_KHR,
+                                       nativeDisplay, Q_NULLPTR);
+    } else {
+        qWarning("EGL_EXT_platform_device not available, falling back to legacy path!");
+        display = eglGetDisplay(nativeDisplay);
+    }
+
+    if (Q_UNLIKELY(display == EGL_NO_DISPLAY))
+        qFatal("Could not get EGL display");
+
+    return display;
 }
 
 bool QEglFSDeviceIntegration::usesDefaultScreen()

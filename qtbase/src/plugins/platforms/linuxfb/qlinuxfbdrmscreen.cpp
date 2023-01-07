@@ -13,8 +13,10 @@
 #include <QLoggingCategory>
 #include <QGuiApplication>
 #include <QPainter>
+#include <QtCore/QRegularExpression>
 #include <QtFbSupport/private/qfbcursor_p.h>
 #include <QtFbSupport/private/qfbwindow_p.h>
+#include <QtFbSupport/private/qfbbackingstore_p.h>
 #include <QtKmsSupport/private/qkmsdevice_p.h>
 #include <QtCore/private/qcore_unix_p.h>
 #include <sys/mman.h>
@@ -23,7 +25,13 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(qLcFbDrm, "qt.qpa.fb")
 
+#define TRIPLE_BUFFER
+
+#ifdef TRIPLE_BUFFER
+static const int BUFFER_COUNT = 3;
+#else
 static const int BUFFER_COUNT = 2;
+#endif
 
 class QLinuxFbDevice : public QKmsDevice
 {
@@ -58,9 +66,10 @@ public:
 
     void createFramebuffers();
     void destroyFramebuffers();
-    void setMode();
 
+    void setMode(Output *output);
     void swapBuffers(Output *output);
+    void waitForFlip(Output *output);
 
     int outputCount() const { return m_outputs.size(); }
     Output *output(int idx) { return &m_outputs[idx]; }
@@ -294,19 +303,21 @@ void QLinuxFbDevice::destroyFramebuffers()
     }
 }
 
-void QLinuxFbDevice::setMode()
+void QLinuxFbDevice::setMode(Output *output)
 {
-    for (Output &output : m_outputs) {
-        drmModeModeInfo &modeInfo(output.kmsOutput.modes[output.kmsOutput.mode]);
-        if (drmModeSetCrtc(fd(), output.kmsOutput.crtc_id, output.fb[0].fb, 0, 0,
-                           &output.kmsOutput.connector_id, 1, &modeInfo) == -1) {
-            qErrnoWarning(errno, "Failed to set mode");
-            return;
-        }
+    drmModeModeInfo &modeInfo(output->kmsOutput.modes[output->kmsOutput.mode]);
 
-        output.kmsOutput.mode_set = true; // have cleanup() to restore the mode
-        output.kmsOutput.setPowerState(this, QPlatformScreen::PowerStateOn);
+    if (output->kmsOutput.mode_set)
+        return;
+
+    if (drmModeSetCrtc(fd(), output->kmsOutput.crtc_id, output->fb[0].fb, 0, 0,
+                       &output->kmsOutput.connector_id, 1, &modeInfo) == -1) {
+        qErrnoWarning(errno, "Failed to set mode");
+        return;
     }
+
+    output->kmsOutput.mode_set = true; // have cleanup() to restore the mode
+    output->kmsOutput.setPowerState(this, QPlatformScreen::PowerStateOn);
 }
 
 void QLinuxFbDevice::pageFlipHandler(int fd, unsigned int sequence,
@@ -319,19 +330,18 @@ void QLinuxFbDevice::pageFlipHandler(int fd, unsigned int sequence,
     Q_UNUSED(tv_usec);
 
     Output *output = static_cast<Output *>(user_data);
+
+#ifndef TRIPLE_BUFFER
+    // The next buffer would be available after flipped
     output->backFb = (output->backFb + 1) % BUFFER_COUNT;
+#endif
+
+    output->flipped = false;
 }
 
-void QLinuxFbDevice::swapBuffers(Output *output)
+void QLinuxFbDevice::waitForFlip(Output *output)
 {
-    Framebuffer &fb(output->fb[output->backFb]);
-    if (drmModePageFlip(fd(), output->kmsOutput.crtc_id, fb.fb, DRM_MODE_PAGE_FLIP_EVENT, output) == -1) {
-        qErrnoWarning(errno, "Page flip failed");
-        return;
-    }
-
-    const int fbIdx = output->backFb;
-    while (output->backFb == fbIdx) {
+    while (output->flipped) {
         drmEventContext drmEvent;
         memset(&drmEvent, 0, sizeof(drmEvent));
         drmEvent.version = 2;
@@ -343,11 +353,55 @@ void QLinuxFbDevice::swapBuffers(Output *output)
     }
 }
 
+void QLinuxFbDevice::swapBuffers(Output *output)
+{
+#ifdef TRIPLE_BUFFER
+    // Wait flip to make sure last buffer displayed
+    waitForFlip(output);
+#endif
+
+    setMode(output);
+
+    Framebuffer &fb(output->fb[output->backFb]);
+
+    if (drmModePageFlip(fd(), output->kmsOutput.crtc_id, fb.fb, DRM_MODE_PAGE_FLIP_EVENT, output) == -1) {
+        qErrnoWarning(errno, "Page flip failed");
+        return;
+    }
+
+    output->flipped = true;
+
+#ifdef TRIPLE_BUFFER
+    // The next buffer should always available in triple buffer case.
+    output->backFb = (output->backFb + 1) % BUFFER_COUNT;
+#endif
+}
+
 QLinuxFbDrmScreen::QLinuxFbDrmScreen(const QStringList &args)
     : m_screenConfig(nullptr),
-      m_device(nullptr)
+      m_device(nullptr),
+      m_rotation(0),
+      m_screenSize(),
+      m_displayRect()
 {
-    Q_UNUSED(args);
+    QRegularExpression rotationRx(QLatin1String("rotation=(0|90|180|270)"));
+    QRegularExpression sizeRx(QLatin1String("size=([1-9]\\d*)x([1-9]\\d*)"));
+    QRegularExpression rectRx(QLatin1String("rect=(\\d+),(\\d+),(\\d+),(\\d+)"));
+
+    for (const QString &arg : qAsConst(args)) {
+        QRegularExpressionMatch match;
+        if (arg.contains(rotationRx, &match))
+            m_rotation = match.captured(1).toInt();
+
+        if (arg.contains(sizeRx, &match))
+            m_screenSize =
+                QSize(match.captured(1).toInt(), match.captured(2).toInt());
+
+        if (arg.contains(rectRx, &match))
+            m_displayRect =
+                QRect(match.captured(1).toInt(), match.captured(2).toInt(),
+                      match.captured(3).toInt(), match.captured(4).toInt());
+    }
 }
 
 QLinuxFbDrmScreen::~QLinuxFbDrmScreen()
@@ -372,12 +426,23 @@ bool QLinuxFbDrmScreen::initialize()
     m_device->createScreens();
     // Now off to dumb buffer specifics.
     m_device->createFramebuffers();
-    // Do the modesetting.
-    m_device->setMode();
 
     QLinuxFbDevice::Output *output(m_device->output(0));
 
-    mGeometry = QRect(QPoint(0, 0), output->currentRes());
+    if (m_screenSize.isEmpty())
+        m_screenSize = output->currentRes();
+
+    mGeometry = QRect(QPoint(0, 0), m_screenSize);
+
+    if (m_displayRect.isEmpty())
+        m_displayRect = mGeometry;
+
+    if(m_rotation % 180) {
+        int tmp = mGeometry.width();
+        mGeometry.setWidth(mGeometry.height());
+        mGeometry.setHeight(tmp);
+    }
+
     mDepth = depthForDrmFormat(output->kmsOutput.drm_format);
     mFormat = formatForDrmFormat(output->kmsOutput.drm_format);
     mPhysicalSize = output->kmsOutput.physical_size;
@@ -392,6 +457,9 @@ bool QLinuxFbDrmScreen::initialize()
 
 QRegion QLinuxFbDrmScreen::doRedraw()
 {
+    qreal scaleX = qreal(m_displayRect.width()) / m_screenSize.width();
+    qreal scaleY = qreal(m_displayRect.height()) / m_screenSize.height();
+
     const QRegion dirty = QFbScreen::doRedraw();
     if (dirty.isEmpty())
         return dirty;
@@ -401,20 +469,54 @@ QRegion QLinuxFbDrmScreen::doRedraw()
     for (int i = 0; i < BUFFER_COUNT; ++i)
         output->dirty[i] += dirty;
 
+#ifndef TRIPLE_BUFFER
+    // Wait flip before accessing new buffer
+    m_device->waitForFlip(output);
+#endif
+
     if (output->fb[output->backFb].wrapper.isNull())
         return dirty;
 
     QPainter pntr(&output->fb[output->backFb].wrapper);
+
+    if (QFbBackingStore::hasScreenImage() && QFbBackingStore::hasFbImage())
+        goto swap;
+
     // Image has alpha but no need for blending at this stage.
     // Do not waste time with the default SourceOver.
     pntr.setCompositionMode(QPainter::CompositionMode_Source);
-    for (const QRect &rect : std::as_const(output->dirty[output->backFb]))
+    for (const QRect &rect : qAsConst(output->dirty[output->backFb])) {
+        pntr.translate(m_displayRect.x(), m_displayRect.y());
+        pntr.scale(scaleX, scaleY);
+
+        if(m_rotation) {
+            if(m_rotation == 180)
+                pntr.translate(mGeometry.width()/2, mGeometry.height()/2);
+            else
+                pntr.translate(mGeometry.height()/2, mGeometry.width()/2);
+
+            pntr.rotate(m_rotation);
+            pntr.translate(-mGeometry.width()/2, -mGeometry.height()/2);
+        }
+
         pntr.drawImage(rect, mScreenImage, rect);
+
+        pntr.resetTransform();
+    }
     pntr.end();
 
+swap:
     output->dirty[output->backFb] = QRegion();
 
     m_device->swapBuffers(output);
+
+    static int count_down = BUFFER_COUNT;
+    if (count_down || m_rotation || m_device->outputCount() > 1) {
+        count_down --;
+        QFbBackingStore::setFbImage(NULL);
+    } else {
+        QFbBackingStore::setFbImage(&output->fb[output->backFb].wrapper);
+    }
 
     return dirty;
 }

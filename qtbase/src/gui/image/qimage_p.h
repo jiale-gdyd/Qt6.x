@@ -265,7 +265,11 @@ inline QImage::Format qt_alphaVersion(QImage::Format format)
     case QImage::Format_ARGB32:
         return QImage::Format_ARGB32_Premultiplied;
     case QImage::Format_RGB16:
+#ifdef QT_USE_RGA
+        return QImage::Format_ARGB32_Premultiplied;
+#else
         return QImage::Format_ARGB8565_Premultiplied;
+#endif
     case QImage::Format_RGB555:
         return QImage::Format_ARGB8555_Premultiplied;
     case QImage::Format_RGB666:

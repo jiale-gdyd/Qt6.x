@@ -20,7 +20,8 @@ QFbScreen::QFbScreen()
       mCursor(0),
       mDepth(16),
       mFormat(QImage::Format_RGB16),
-      mPainter(nullptr)
+      mPainter(nullptr),
+      mDirectPainting(false)
 {
 }
 
@@ -48,6 +49,15 @@ bool QFbScreen::event(QEvent *event)
 void QFbScreen::addWindow(QFbWindow *window)
 {
     mWindowStack.prepend(window);
+
+#ifdef QT_FB_DIRECT_PAINTING
+    // HACK: Only allow direct painting for single window
+    if (windowCount() == 1)
+        QFbBackingStore::setScreenImage(&mScreenImage);
+    else
+        QFbBackingStore::setScreenImage(NULL);
+#endif
+
     if (!mPendingBackingStores.isEmpty()) {
         //check if we have a backing store for this window
         for (int i = 0; i < mPendingBackingStores.size(); ++i) {
@@ -70,6 +80,15 @@ void QFbScreen::addWindow(QFbWindow *window)
 void QFbScreen::removeWindow(QFbWindow *window)
 {
     mWindowStack.removeOne(window);
+
+#ifdef QT_FB_DIRECT_PAINTING
+    // HACK: Only allow direct painting for single window
+    if (windowCount() == 1)
+        QFbBackingStore::setScreenImage(&mScreenImage);
+    else
+        QFbBackingStore::setScreenImage(NULL);
+#endif
+
     setDirty(window->geometry());
     QWindow *w = topWindow();
     QWindowSystemInterface::handleWindowActivated(w);
@@ -172,16 +191,35 @@ QRegion QFbScreen::doRedraw()
         return touchedRegion;
 
     if (!mPainter)
-        mPainter = new QPainter(&mScreenImage);
+        mPainter = new QPainter();
 
     const QRect screenRect = mGeometry.translated(-screenOffset);
+    bool fully_repainted = mRepaintRegion.rectCount() == 1 &&
+        mRepaintRegion.boundingRect().contains(screenRect);
+
+    if (fully_repainted && QFbBackingStore::hasScreenImage()) {
+        // HACK: The screen(or fb) has been fully repainted
+        touchedRegion += mRepaintRegion;
+        mRepaintRegion = QRegion();
+        mDirectPainting = true;
+        return touchedRegion;
+    }
+
+    // HACK: Ignore partial update in direct paiting mode
+    if (mDirectPainting && !fully_repainted)
+        return touchedRegion;
+
+    mPainter->begin(&mScreenImage);
+
     for (QRect rect : mRepaintRegion) {
         rect = rect.intersected(screenRect);
         if (rect.isEmpty())
             continue;
 
         mPainter->setCompositionMode(QPainter::CompositionMode_Source);
-        mPainter->fillRect(rect, mScreenImage.hasAlphaChannel() ? Qt::transparent : Qt::black);
+
+        if (!QFbBackingStore::hasScreenImage())
+            mPainter->fillRect(rect, mScreenImage.hasAlphaChannel() ? Qt::transparent : Qt::black);
 
         for (int layerIndex = mWindowStack.size() - 1; layerIndex != -1; layerIndex--) {
             if (!mWindowStack[layerIndex]->window()->isVisible())
@@ -204,6 +242,11 @@ QRegion QFbScreen::doRedraw()
     }
     touchedRegion += mRepaintRegion;
     mRepaintRegion = QRegion();
+
+    // HACK: Force updating fb when not doing direct painting
+    QFbBackingStore::setFbImage(NULL);
+
+    mPainter->end();
 
     return touchedRegion;
 }

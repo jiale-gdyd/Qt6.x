@@ -716,7 +716,8 @@ QSizePolicy::ControlTypes QWidgetItem::controlTypes() const
 
 inline bool QWidgetItemV2::useSizeCache() const
 {
-    return wid->d_func()->widgetItem == this;
+    /* HACK: Force disable size cache */
+    return false;//wid->d_func()->widgetItem == this;
 }
 
 void QWidgetItemV2::updateCacheIfNecessary() const

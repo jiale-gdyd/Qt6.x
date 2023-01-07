@@ -144,6 +144,17 @@ qt_internal_add_module(Gui
         math3d/qvector3d.h
         math3d/qvector4d.h
         math3d/qvectornd.cpp math3d/qvectornd.h
+        rockchip/im2d.cpp rockchip/im2d.h rockchip/rgadbg.h rockchip/version.h rockchip/RgaUtils.h rockchip/NormalRga.h rockchip/RockchipRga.h
+        rockchip/NormalRga.cpp rockchip/rgadbg.h rockchip/version.h rockchip/NormalRga.h rockchip/NormalRgaContext.h
+        rockchip/NormalRgaApi.cpp rockchip/rga.h rockchip/rgadbg.h rockchip/NormalRga.h rockchip/NormalRgaContext.h
+        rockchip/RgaApi.cpp rockchip/rgadbg.h rockchip/RgaApi.h rockchip/RockchipRga.h
+        rockchip/RgaUtils.cpp rockchip/rgadbg.h rockchip/RgaUtils.h rockchip/NormalRga.h rockchip/RockchipRga.h
+        rockchip/RockchipRga.cpp rockchip/rgadbg.h rockchip/version.h rockchip/NormalRga.h rockchip/RockchipRga.h rockchip/drm.h rockchip/xf86drm.h rockchip/drm_mode.h
+        rockchip/xf86drm.c rockchip/xf86drm.h rockchip/libdrm_macros.h rockchip/drm_fourcc.h rockchip/util_math.h
+        rockchip/xf86drmHash.c rockchip/libdrm_macros.h rockchip/xf86drm.h rockchip/xf86drmHash.h
+        rockchip/xf86drmMode.c rockchip/libdrm_macros.h rockchip/xf86drmMode.h rockchip/xf86drm.h rockchip/drm.h rockchip/drm_fourcc.h
+        rockchip/xf86drmRandom.c rockchip/libdrm_macros.h rockchip/xf86drm.h rockchip/xf86drmRandom.h
+        rockchip/xf86drmSL.c rockchip/libdrm_macros.h rockchip/xf86drm.h
         painting/qbackingstore.cpp painting/qbackingstore.h
         painting/qbackingstoredefaultcompositor.cpp painting/qbackingstoredefaultcompositor_p.h
         painting/qbackingstorerhisupport.cpp painting/qbackingstorerhisupport_p.h

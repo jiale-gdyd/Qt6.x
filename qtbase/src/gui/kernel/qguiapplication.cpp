@@ -2975,6 +2975,11 @@ void QGuiApplicationPrivate::processTouchEvent(QWindowSystemInterfacePrivate::To
             continue;
         }
 
+        // Force using mouse events instead of touch
+        char *buf = getenv("QT_TOUCH_TO_MOUSE");
+        if (buf && buf[0] == '1')
+            goto fake_mouse;
+
         // Note: after the call to sendSpontaneousEvent, touchEvent.position() will have
         // changed to reflect the local position inside the last (random) widget it tried
         // to deliver the touch event to, and will therefore be invalid afterwards.
@@ -2983,7 +2988,7 @@ void QGuiApplicationPrivate::processTouchEvent(QWindowSystemInterfacePrivate::To
         if (!e->synthetic() && !touchEvent.isAccepted() && qApp->testAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents)) {
             // exclude devices which generate their own mouse events
             if (!(touchEvent.device()->capabilities().testFlag(QInputDevice::Capability::MouseEmulation))) {
-
+fake_mouse:
                 QEvent::Type mouseEventType = QEvent::MouseMove;
                 Qt::MouseButton button = Qt::NoButton;
                 Qt::MouseButtons buttons = Qt::LeftButton;

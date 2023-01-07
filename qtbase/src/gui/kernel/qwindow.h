@@ -380,6 +380,13 @@ template <> inline const QWindow *qobject_cast<const QWindow*>(const QObject *o)
 Q_GUI_EXPORT QDebug operator<<(QDebug, const QWindow *);
 #endif
 
+// Inherit this to overrid window id for video window
+class Q_GUI_EXPORT QVideoWindowAbstractInterface
+{
+public:
+    virtual WId videoWinId() const = 0;
+};
+
 QT_END_NAMESPACE
 
 #endif // QWINDOW_H

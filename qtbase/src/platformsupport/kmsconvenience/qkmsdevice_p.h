@@ -23,9 +23,9 @@
 #include <QtCore/QVariant>
 #include <QtCore/QThreadStorage>
 
-#include <xf86drm.h>
-#include <xf86drmMode.h>
-#include <drm_fourcc.h>
+#include "xf86drm.h"
+#include "xf86drmMode.h"
+#include "drm_fourcc.h"
 
 #include <functional>
 

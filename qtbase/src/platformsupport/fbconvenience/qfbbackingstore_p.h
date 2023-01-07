@@ -31,7 +31,7 @@ public:
     QFbBackingStore(QWindow *window);
     ~QFbBackingStore();
 
-    QPaintDevice *paintDevice() override { return &mImage; }
+    QPaintDevice *paintDevice() override;
     void flush(QWindow *window, const QRegion &region, const QPoint &offset) override;
 
     void resize(const QSize &size, const QRegion &region) override;
@@ -45,11 +45,21 @@ public:
     void beginPaint(const QRegion &) override;
     void endPaint() override;
 
+    static void setScreenImage(QImage *screenImage)
+        { gScreenImage = screenImage; };
+    static void setFbImage(QImage *fbImage) { gFbImage = fbImage; }
+
+    static bool hasScreenImage() { return gScreenImage != NULL; };
+    static bool hasFbImage() { return gFbImage != NULL; };
+
 protected:
     friend class QFbWindow;
 
     QImage mImage;
     QMutex mImageMutex;
+
+    static QImage *gScreenImage;
+    static QImage *gFbImage;
 };
 
 QT_END_NAMESPACE

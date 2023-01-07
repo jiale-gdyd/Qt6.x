@@ -88,6 +88,8 @@ protected:
     QSizeF mPhysicalSize;
     QImage mScreenImage;
 
+    bool mDirectPainting;
+
 private:
     QPainter *mPainter;
     QList<QFbBackingStore*> mPendingBackingStores;

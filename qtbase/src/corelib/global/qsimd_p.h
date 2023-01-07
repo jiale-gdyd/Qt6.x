@@ -401,7 +401,10 @@ static inline void qYieldCpu()
          https://stackoverflow.com/a/70076751/134841
          https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105416
     */
-    asm volatile("yield"); /* this works everywhere */
+#    if defined(Q_PROCESSOR_ARM_V7)
+    /* The yield instruction appeared in ARMv7 */
+    asm volatile("yield");
+#    endif
 #  else
     __yield(); /* this is what should work everywhere */
 #  endif

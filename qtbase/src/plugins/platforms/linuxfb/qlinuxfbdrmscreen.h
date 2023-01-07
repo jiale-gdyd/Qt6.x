@@ -25,6 +25,10 @@ public:
 private:
     QKmsScreenConfig *m_screenConfig;
     QLinuxFbDevice *m_device;
+
+    int m_rotation;
+    QSize m_screenSize;
+    QRect m_displayRect;
 };
 
 QT_END_NAMESPACE

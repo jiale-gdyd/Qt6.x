@@ -1367,6 +1367,10 @@ void QRasterPaintEngine::fillPath(const QPainterPath &path, QSpanData *fillData)
     d->rasterize(d->outlineMapper->convertPath(path), blend, fillData, d->rasterBuffer.data());
 }
 
+#ifdef QT_USE_RGA
+#include "rga.c"
+#endif
+
 static void fillRect_normalized(const QRect &r, QSpanData *data,
                                 QRasterPaintEnginePrivate *pe)
 {
@@ -1401,6 +1405,48 @@ static void fillRect_normalized(const QRect &r, QSpanData *data,
 
     bool isUnclipped = rectClipped
                        || (pe && pe->isUnclipped_normalized(QRect(x1, y1, width, height)));
+
+#ifdef QT_USE_RGA
+    if (pe && isUnclipped && width > 64 && height > 64) {
+        const QPainter::CompositionMode mode = pe->rasterBuffer->compositionMode;
+        const uchar *dst = data->rasterBuffer->buffer();
+        int dst_stride = data->rasterBuffer->bytesPerLine();
+        int dst_height = data->rasterBuffer->height();
+        QImage::Format dst_format = data->rasterBuffer->format;
+
+        const uchar *src = data->texture.imageData;
+        int src_stride = data->texture.bytesPerLine;
+        int src_height = data->texture.height;
+        QImage::Format src_format = data->texture.format;
+
+        if (data->type == QSpanData::Solid) {
+#if 0 // Somehow neon is faster than rga on this
+            if (mode == QPainter::CompositionMode_Source ||
+                (mode == QPainter::CompositionMode_SourceOver &&
+                 data->solid.color.isOpaque())) {
+                if (rga_fill(dst, dst_stride, dst_height, dst_format,
+                             data->solid.color.toArgb32(),
+                             x1, y1, width, height))
+                    return;
+            }
+#endif
+        } else if (data->type == QSpanData::Texture) {
+            int sx, sy, dx, dy;
+
+            sx = x1 - qRound(-data->dx);
+            sy = y1 - qRound(-data->dy);
+            dx = x1;
+            dy = y1;
+
+            if (rga_blit(src, src_stride, src_height,
+                         dst, dst_stride, dst_height,
+                         src_format, dst_format,
+                         sx, sy, dx, dy, width, height,
+                         mode, data->texture.const_alpha))
+                return;
+        }
+    }
+#endif
 
     if (pe && isUnclipped) {
         const QPainter::CompositionMode mode = pe->rasterBuffer->compositionMode;

@@ -157,6 +157,12 @@ void QOffscreenSurface::destroy()
     QPlatformSurfaceEvent e(QPlatformSurfaceEvent::SurfaceAboutToBeDestroyed);
     QGuiApplication::sendEvent(this, &e);
 
+#ifndef QT_NO_OPENGL
+    QOpenGLContext *context = QOpenGLContext::currentContext();
+    if (context && context->surface() == this)
+        context->doneCurrent();
+#endif
+
     delete d->platformOffscreenSurface;
     d->platformOffscreenSurface = nullptr;
     if (d->offscreenWindow) {

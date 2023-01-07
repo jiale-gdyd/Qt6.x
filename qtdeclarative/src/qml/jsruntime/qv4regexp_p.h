@@ -21,7 +21,7 @@
 #include <wtf/FastAllocBase.h>
 #include <wtf/BumpPointerAllocator.h>
 
-#include <limits.h>
+#include <limits>
 
 #include <yarr/Yarr.h>
 #include <yarr/YarrInterpreter.h>

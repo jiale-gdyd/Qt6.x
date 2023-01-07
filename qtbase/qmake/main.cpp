@@ -267,6 +267,11 @@ static int installFile(const QString &source, const QString &target, bool exe = 
         QDir::root().mkpath(QFileInfo(target).absolutePath());
     }
 
+    /* HACK: Workaround installation race of qtdeclarative's qmltypes */
+    if (!sourceFile.copy(target))
+        /* Wait for other installers and retry later */
+        if (({ sleep(10); QFile::remove(target); !sourceFile.copy(target); }))
+
     if (!sourceFile.copy(target)) {
         fprintf(stderr, "Error copying %s to %s: %s\n", source.toLatin1().constData(), qPrintable(target), qPrintable(sourceFile.errorString()));
         return 3;

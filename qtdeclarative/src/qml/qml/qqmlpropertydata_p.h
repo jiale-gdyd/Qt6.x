@@ -330,7 +330,7 @@ public:
             doMetacall<QMetaObject::ReadProperty>(target, coreIndex(), args);
     }
 
-    bool writeProperty(QObject *target, void *value, WriteFlags flags) const
+    Q_NEVER_INLINE bool writeProperty(QObject *target, void *value, WriteFlags flags) const
     {
         int status = -1;
         void *argv[] = { value, nullptr, &status, &flags };

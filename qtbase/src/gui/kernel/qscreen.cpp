@@ -41,7 +41,23 @@ QScreen::QScreen(QPlatformScreen *screen)
     : QObject(*new QScreenPrivate(), nullptr)
 {
     Q_D(QScreen);
+    QScreen *primaryScreen = QGuiApplication::primaryScreen();
+
     d->setPlatformScreen(screen);
+
+    if (primaryScreen)
+        return;
+
+    // Move any leftover windows to this new screen
+    const auto allWindows = QGuiApplication::allWindows();
+    for (QWindow *window : allWindows) {
+        if (!window->isTopLevel())
+            continue;
+
+        const bool wasVisible = window->isVisible();
+        window->setScreen(this);
+        window->setVisible(wasVisible);
+    }
 }
 
 void QScreenPrivate::updateGeometriesWithSignals()
@@ -380,6 +396,9 @@ QSize QScreen::availableSize() const
 */
 QRect QScreen::geometry() const
 {
+    if (!qApp)
+       return QRect(0, 0, 0, 0);
+
     Q_D(const QScreen);
     return d->geometry;
 }

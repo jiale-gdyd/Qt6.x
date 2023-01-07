@@ -44,7 +44,9 @@ EGLDisplay QEglFSKmsGbmIntegration::createDisplay(EGLNativeDisplayType nativeDis
     }
 
     if (getPlatformDisplay) {
-        display = getPlatformDisplay(EGL_PLATFORM_GBM_KHR, nativeDisplay, nullptr);
+        // EGLNativeDisplayType may be int on some platforms but those
+        // won't hit this path. Have to keep it compiling nonetheless.
+        display = getPlatformDisplay(EGL_PLATFORM_GBM_KHR, reinterpret_cast<void *>(nativeDisplay), nullptr);
     } else {
         qCDebug(qLcEglfsKmsDebug, "No eglGetPlatformDisplay for GBM, falling back to eglGetDisplay");
         display = eglGetDisplay(nativeDisplay);
