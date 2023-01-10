@@ -228,7 +228,17 @@ function build_iconv_rv1126()
     fi
 
     print_info "build libiconv for rv1126 finished and ready copy iconv to ${RV1126_INSTALL_PATH}"
-    ${SUDO_CMD} cp -a ${CUR_DIR}/iconv ${RV1126_INSTALL_PATH}
+    if [ ! -d "${RV1126_INSTALL_PATH}/iconv" ]; then
+        print_info "${RV1126_INSTALL_PATH}/iconv not exists and mkdir -p ${RV1126_INSTALL_PATH}/iconv now"
+
+        ${SUDO_CMD} mkdir -p ${RV1126_INSTALL_PATH}/iconv
+        if [ $? -ne 0 ]; then
+            rm -rf build_iconv
+            error_exit "mkdir -p ${RV1126_INSTALL_PATH}/iconv failed"
+        fi
+
+        ${SUDO_CMD} cp -a ${CUR_DIR}/iconv ${RV1126_INSTALL_PATH}/iconv
+    fi
 
     rm -rf ${CUR_DIR}/build_iconv
     rm -rf ${CUR_DIR}/iconv
