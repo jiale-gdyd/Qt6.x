@@ -209,17 +209,17 @@ function build_iconv_rv1126()
         ;;
     esac
 
-    if [ ! -d "${CUR_DIR}iconv" ]; then
-        print_info "${CUR_DIR}iconv not exists and mkdir -p ${CUR_DIR}iconv now"
+    if [ ! -d "${CUR_DIR}/iconv" ]; then
+        print_info "${CUR_DIR}iconv not exists and mkdir -p ${CUR_DIR}/iconv now"
 
-        mkdir -p ./iconv
+        mkdir -p ${CUR_DIR}/iconv
         if [ $? -ne 0 ]; then
             rm -rf build_iconv
-            error_exit "mkdir -p ${CUR_DIR}iconv failed"
+            error_exit "mkdir -p ${CUR_DIR}/iconv failed"
         fi
     fi
 
-    print_info "ready to install libiconv to ${CUR_DIR}iconv ......"
+    print_info "ready to install libiconv to ${CUR_DIR}/iconv ......"
 
     make install
     if [ $? -ne 0 ]; then
