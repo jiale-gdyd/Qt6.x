@@ -9,7 +9,7 @@ set(CMAKE_C_COMPILER /opt/toolchain/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabi
 set(CMAKE_CXX_COMPILER /opt/toolchain/gcc-arm-8.3-2019.03-x86_64-arm-linux-gnueabihf/bin/arm-linux-gnueabihf-g++)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DQT_USE_RGA -DQT_FB_DRM_ARGB32 -DQT_CONFIG_ROCKCHIP")
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "-Wno-psapi ${CMAKE_C_FLAGS}")
 
 set(QT_COMPILER_FLAGS "-march=armv7-a -mcpu=cortex-a7 -mfpu=neon -DQT_USE_RGA -DQT_FB_DRM_ARGB32 -DQT_CONFIG_ROCKCHIP")
 set(QT_COMPILER_FLAGS_RELEASE "-O2 -pipe -DQT_USE_RGA -DQT_FB_DRM_ARGB32 -DQT_CONFIG_ROCKCHIP")
