@@ -18,22 +18,22 @@ CMAKE_BIN=/usr/bin/cmake
 CMAKE_VERSION=$(${CMAKE_BIN} --version)
 
 HOST_INSTALL_PATH=/opt/Qt${QT6_VERSION}_host
-RV1126_INSTALL_PATH=/opt/Qt${QT6_VERSION}_rv1126
+IMX6ULL_INSTALL_PATH=/opt/Qt${QT6_VERSION}_imx6ull
 
 QT6_SRC_PATH=${CUR_DIR}/..
 
-CMAKE_TOOLCHAIN_FILE=${CUR_DIR}/toolchain_rv1126.cmake
+CMAKE_TOOLCHAIN_FILE=${CUR_DIR}/toolchain_imx6ull.cmake
 
-RV1126_CHAIN_PREFIX=arm-linux-gnueabihf
-RV1126_CHAIN_SUFFIX=/opt/toolchain/gcc-arm-8.3-2019.03-x86_64
+IMX6ULL_CHAIN_PREFIX=arm-none-linux-gnueabihf
+IMX6ULL_CHAIN_SUFFIX=/opt/toolchain/gcc-arm-12.2-2022.12-x86_64
 
-IMX6ULL_TOOLCHAIN_ROOT_PATH=${RV1126_CHAIN_SUFFIX}-${RV1126_CHAIN_PREFIX}
-RV1126_CROSS_COMPILE=${IMX6ULL_TOOLCHAIN_ROOT_PATH}/bin/${RV1126_CHAIN_PREFIX}-
+IMX6ULL_TOOLCHAIN_ROOT_PATH=${IMX6ULL_CHAIN_SUFFIX}-${IMX6ULL_CHAIN_PREFIX}
+IMX6ULL_CROSS_COMPILE=${IMX6ULL_TOOLCHAIN_ROOT_PATH}/bin/${IMX6ULL_CHAIN_PREFIX}-
 
-export QMAKE_RV1126_CROSS_COMPILE=${RV1126_CROSS_COMPILE}
+export QMAKE_IMX6ULL_CROSS_COMPILE=${IMX6ULL_CROSS_COMPILE}
 
 BUILD_HOST_TEMPDIR=qt6_build_host_tmpdir
-BUILD_RV1126_TEMPDIR=qt6_build_rv1126_tmpdir
+BUILD_IMX6ULL_TEMPDIR=qt6_build_imx6ull_tmpdir
 
 cmake_version_min='3190'
 cmake_version=$(cmake --version | grep 'cmake version' | awk -F ' ' '{print $3}')
@@ -140,7 +140,7 @@ function build_qt6_host()
     echo "It takes "${min}" minutes, and "${second} "seconds"
 }
 
-function build_iconv_rv1126()
+function build_iconv_imx6ull()
 {
     begin=$(get_timestamp)
     type=$(uname)
@@ -148,7 +148,7 @@ function build_iconv_rv1126()
     version=$(get_general_version)
     echo "Platform type: "${type}" "${distro}" "${version}
 
-    print_info "ready configure libconv for rv1126 ......"
+    print_info "ready configure libconv for imx6ull ......"
 
     if [ -d "./build_iconv" ]; then
         rm -rf build_iconv
@@ -162,23 +162,23 @@ function build_iconv_rv1126()
 
     ./configure \
         --prefix=${CUR_DIR}/iconv \
-        --host=${RV1126_CHAIN_PREFIX} \
-        CC=${RV1126_CROSS_COMPILE}gcc
+        --host=${IMX6ULL_CHAIN_PREFIX} \
+        CC=${IMX6ULL_CROSS_COMPILE}gcc
 
     if [ $? -ne 0 ]; then
         rm -rf build_iconv
-        error_exit "configure libiconv for rv1126 failed"
+        error_exit "configure libiconv for imx6ull failed"
     fi
 
-    read -r -p "Starting compiling libiconv for rv1126? [Y/n] " start_compile
+    read -r -p "Starting compiling libiconv for imx6ull? [Y/n] " start_compile
     case $start_compile in
     [yY][eE][sS] | [yY])
-        print_info "compiling libiconv for rv1126 ......"
+        print_info "compiling libiconv for imx6ull ......"
         ;;
 
     [nN][oO] | [nN])
         rm -rf build_iconv
-        print_warn "you quit compiling libiconv for rv1126"
+        print_warn "you quit compiling libiconv for imx6ull"
         exit 1
         ;;
 
@@ -194,17 +194,17 @@ function build_iconv_rv1126()
         error_exit "make -j${CPU_CORES} failed"
     fi
 
-    print_info "make libiconv for rv1126 successful ......"
+    print_info "make libiconv for imx6ull successful ......"
 
-    read -r -p "Starting install libiconv for rv1126? [Y/n] " start_install
+    read -r -p "Starting install libiconv for imx6ull? [Y/n] " start_install
     case $start_install in
     [yY][eE][sS] | [yY])
-        print_info "installing libiconv for rv1126 ......"
+        print_info "installing libiconv for imx6ull ......"
         ;;
 
     [nN][oO] | [nN])
         rm -rf build_iconv
-        print_warn "you quit install libiconv for rv1126"
+        print_warn "you quit install libiconv for imx6ull"
         exit 1
         ;;
 
@@ -230,20 +230,20 @@ function build_iconv_rv1126()
     make install
     if [ $? -ne 0 ]; then
         rm -rf build_iconv
-        error_exit "make install libiconv for rv1126 failed"
+        error_exit "make install libiconv for imx6ull failed"
     fi
 
-    print_info "build libiconv for rv1126 finished and ready copy iconv to ${RV1126_INSTALL_PATH}"
-    if [ ! -d "${RV1126_INSTALL_PATH}/iconv" ]; then
-        print_info "${RV1126_INSTALL_PATH}/iconv not exists and mkdir -p ${RV1126_INSTALL_PATH}/iconv now"
+    print_info "build libiconv for imx6ull finished and ready copy iconv to ${IMX6ULL_INSTALL_PATH}"
+    if [ ! -d "${IMX6ULL_INSTALL_PATH}/iconv" ]; then
+        print_info "${IMX6ULL_INSTALL_PATH}/iconv not exists and mkdir -p ${IMX6ULL_INSTALL_PATH}/iconv now"
 
-        ${SUDO_CMD} mkdir -p ${RV1126_INSTALL_PATH}/iconv
+        ${SUDO_CMD} mkdir -p ${IMX6ULL_INSTALL_PATH}/iconv
         if [ $? -ne 0 ]; then
             rm -rf build_iconv
-            error_exit "mkdir -p ${RV1126_INSTALL_PATH}/iconv failed"
+            error_exit "mkdir -p ${IMX6ULL_INSTALL_PATH}/iconv failed"
         fi
 
-        ${SUDO_CMD} cp -a ${CUR_DIR}/iconv ${RV1126_INSTALL_PATH}/iconv
+        ${SUDO_CMD} cp -a ${CUR_DIR}/iconv ${IMX6ULL_INSTALL_PATH}/iconv
     fi
 
     rm -rf ${CUR_DIR}/build_iconv
@@ -267,8 +267,8 @@ function build_tslib_imx6ull()
     print_info "ready configure tslib for imx6ull ......"
 
     export ARCH=arm
-    export PATH=$PATH:${TOOLS_ROOT}/bin
-    export CROSS_COMPILE=${RV1126_CROSS_COMPILE}
+    export PATH=$PATH:${IMX6ULL_TOOLCHAIN_ROOT_PATH}/bin
+    export CROSS_COMPILE=${IMX6ULL_CROSS_COMPILE}
 
     if [ -d "./build_tslib" ]; then
         rm -rf build_tslib
@@ -290,7 +290,7 @@ function build_tslib_imx6ull()
     ./configure \
         --prefix=${CUR_DIR}/tslib \
         --host=${IMX6ULL_CHAIN_PREFIX} \
-        CC=${RV1126_CROSS_COMPILE}gcc
+        CC=${IMX6ULL_CROSS_COMPILE}gcc
 
     if [ $? -ne 0 ]; then
         rm -rf build_tslib
@@ -360,18 +360,19 @@ function build_tslib_imx6ull()
         error_exit "make install tslib for imx6ull failed"
     fi
 
-    print_info "build tslib for imx6ull finished and ready copy tslib to ${RV1126_INSTALL_PATH}"
-    if [ ! -d "${RV1126_INSTALL_PATH}" ]; then
-        print_info "${RV1126_INSTALL_PATH} not exists and mkdir -p ${RV1126_INSTALL_PATH} now"
+    print_info "build tslib for imx6ull finished and ready copy tslib to ${IMX6ULL_INSTALL_PATH}"
+    if [ ! -d "${IMX6ULL_INSTALL_PATH}" ]; then
+        print_info "${IMX6ULL_INSTALL_PATH} not exists and mkdir -p ${IMX6ULL_INSTALL_PATH} now"
 
-        ${SUDO_CMD} mkdir -p ${RV1126_INSTALL_PATH}
+        ${SUDO_CMD} mkdir -p ${IMX6ULL_INSTALL_PATH}
         if [ $? -ne 0 ]; then
             rm -rf build_tslib
-            error_exit "mkdir -p ${RV1126_INSTALL_PATH} failed"
+            error_exit "mkdir -p ${IMX6ULL_INSTALL_PATH} failed"
         fi
-        ${SUDO_CMD} cp -a ${CUR_DIR}/tslib ${RV1126_INSTALL_PATH}/
+
+        ${SUDO_CMD} cp -a ${CUR_DIR}/tslib ${IMX6ULL_INSTALL_PATH}/
     else
-        ${SUDO_CMD} cp -a ${CUR_DIR}/tslib ${RV1126_INSTALL_PATH}/
+        ${SUDO_CMD} cp -a ${CUR_DIR}/tslib ${IMX6ULL_INSTALL_PATH}/
     fi
 
     rm -rf ${CUR_DIR}/build_tslib
@@ -384,9 +385,9 @@ function build_tslib_imx6ull()
     echo "It takes "${min}" minutes, and "${second} "seconds"
 }
 
-function build_qt6_rv1126()
+function build_qt6_imx6ull()
 {
-    build_iconv_rv1126
+    build_iconv_imx6ull
     build_tslib_imx6ull
 
     begin=$(get_timestamp)
@@ -395,22 +396,23 @@ function build_qt6_rv1126()
     version=$(get_general_version)
     echo "Platform type: "${type}" "${distro}" "${version}
 
-    print_info "ready configure Qt${QT6_VERSION} for rv1126 ......"
+    print_info "ready configure Qt${QT6_VERSION} for imx6ull ......"
 
-    if [ -d "${BUILD_RV1126_TEMPDIR}" ]; then
-        rm -rf ${BUILD_RV1126_TEMPDIR}
+    if [ -d "${BUILD_IMX6ULL_TEMPDIR}" ]; then
+        rm -rf ${BUILD_IMX6ULL_TEMPDIR}
     fi
 
-    mkdir ${BUILD_RV1126_TEMPDIR}
-    cd ${BUILD_RV1126_TEMPDIR}
+    mkdir ${BUILD_IMX6ULL_TEMPDIR}
+    cd ${BUILD_IMX6ULL_TEMPDIR}
 
     if [ $cmake_version_num \< $cmake_version_min ]; then
         ${QT6_SRC_PATH}/configure \
-            -prefix ${RV1126_INSTALL_PATH} \
+            -prefix ${IMX6ULL_INSTALL_PATH} \
             -opensource \
             -confirm-license \
             -release \
-            -kms \
+            -strip \
+            -no-kms \
             -linuxfb \
             -no-opengl \
             -no-eglfs \
@@ -463,23 +465,24 @@ function build_qt6_rv1126()
             -inotify \
             -evdev \
             -no-tslib \
-            -I${TOOLS_ROOT}/include:${RV1126_INSTALL_PATH}/tslib/include \
-            -L${RV1126_INSTALL_PATH}/tslib/lib \
+            -I${IMX6ULL_INSTALL_PATH}/tslib/include \
+            -L${IMX6ULL_INSTALL_PATH}/tslib/lib \
             -optimized-qmake \
-            -device linux-arm-rockchip-rv1126-g++ \
+            -device linux-arm-imx6ull-g++ \
             -device-option \
-            CROSS_COMPILE=${RV1126_CROSS_COMPILE} -- \
+            CROSS_COMPILE=${IMX6ULL_CROSS_COMPILE} -- \
             -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE} \
             -DQT_HOST_PATH=${HOST_INSTALL_PATH} \
-            -xplatform linux-arm-rockchip-rv1126-g++ \
+            -xplatform linux-arm-imx6ull-g++ \
             -qt-host-path ${HOST_INSTALL_PATH}
     else
         ${QT6_SRC_PATH}/configure \
-            -prefix ${RV1126_INSTALL_PATH} \
+            -prefix ${IMX6ULL_INSTALL_PATH} \
             -opensource \
             -confirm-license \
+            -strip \
             -release \
-            -kms \
+            -no-kms \
             -linuxfb \
             -no-opengl \
             -no-eglfs \
@@ -532,28 +535,28 @@ function build_qt6_rv1126()
             -inotify \
             -evdev \
             -no-tslib \
-            -I${TOOLS_ROOT}/include:${RV1126_INSTALL_PATH}/tslib/include \
-            -L${RV1126_INSTALL_PATH}/tslib/lib \
+            -I${IMX6ULL_INSTALL_PATH}/tslib/include \
+            -L${IMX6ULL_INSTALL_PATH}/tslib/lib \
             -optimized-qmake \
-            -device linux-arm-rockchip-rv1126-g++ \
+            -device linux-arm-imx6ull-g++ \
             -device-option \
-            CROSS_COMPILE=${RV1126_CROSS_COMPILE} -- \
+            CROSS_COMPILE=${IMX6ULL_CROSS_COMPILE} -- \
             -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE} \
             -DQT_HOST_PATH=${HOST_INSTALL_PATH}
     fi
 
     if [ $? -ne 0 ]; then
-        error_exit "Qt${QT6_VERSION} configure for rv1126 failed"
+        error_exit "Qt${QT6_VERSION} configure for imx6ull failed"
     fi
 
-    read -r -p "Starting compiling Qt${QT6_VERSION} for rv1126? [Y/n] " start_compile
+    read -r -p "Starting compiling Qt${QT6_VERSION} for imx6ull? [Y/n] " start_compile
     case $start_compile in
     [yY][eE][sS] | [yY])
-        print_info "compiling Qt${QT6_VERSION} for rv1126 ......"
+        print_info "compiling Qt${QT6_VERSION} for imx6ull ......"
         ;;
 
     [nN][oO] | [nN])
-        print_warn "you quit compiling Qt${QT6_VERSION} for rv1126"
+        print_warn "you quit compiling Qt${QT6_VERSION} for imx6ull"
         exit 1
         ;;
 
@@ -568,16 +571,16 @@ function build_qt6_rv1126()
         error_exit "${CMAKE_BIN} --build . --parallel ${CPU_CORES} failed"
     fi
 
-    print_info "${CMAKE_BIN} Qt${QT6_VERSION} for rv1126 successful ......"
+    print_info "${CMAKE_BIN} Qt${QT6_VERSION} for imx6ull successful ......"
 
-    read -r -p "Starting install Qt${QT6_VERSION} for rv1126? [Y/n] " start_install
+    read -r -p "Starting install Qt${QT6_VERSION} for imx6ull? [Y/n] " start_install
     case $start_install in
     [yY][eE][sS] | [yY])
-        print_info "installing Qt${QT6_VERSION} for rv1126 ......"
+        print_info "installing Qt${QT6_VERSION} for imx6ull ......"
         ;;
 
     [nN][oO] | [nN])
-        print_warn "you quit install Qt${QT6_VERSION} for rv1126"
+        print_warn "you quit install Qt${QT6_VERSION} for imx6ull"
         exit 1
         ;;
 
@@ -587,33 +590,33 @@ function build_qt6_rv1126()
         ;;
     esac
 
-    if [ ! -d "${RV1126_INSTALL_PATH}" ]; then
-        print_info "${RV1126_INSTALL_PATH} not exists and {SUDO_CMD} mkdir -p ${RV1126_INSTALL_PATH} now"
+    if [ ! -d "${IMX6ULL_INSTALL_PATH}" ]; then
+        print_info "${IMX6ULL_INSTALL_PATH} not exists and {SUDO_CMD} mkdir -p ${IMX6ULL_INSTALL_PATH} now"
 
-        ${SUDO_CMD} mkdir -p ${RV1126_INSTALL_PATH}
+        ${SUDO_CMD} mkdir -p ${IMX6ULL_INSTALL_PATH}
         if [ $? -ne 0 ]; then
             error_exit "{SUDO_CMD} mkdir -p ${HOST_INSTALL_PATH} failed"
         fi
     fi
 
-    print_info "ready to install Qt${QT6_VERSION} to ${RV1126_INSTALL_PATH} ......"
+    print_info "ready to install Qt${QT6_VERSION} to ${IMX6ULL_INSTALL_PATH} ......"
 
     ${SUDO_CMD} cmake --install .
     if [ $? -ne 0 ]; then
-        error_exit "${SUDO_CMD} ${CMAKE_BIN} install for rv1126 failed"
+        error_exit "${SUDO_CMD} ${CMAKE_BIN} install for imx6ull failed"
     fi
 
-    print_info "install Qt${QT6_VERSION} for rv1126 successful ......"
+    print_info "install Qt${QT6_VERSION} for imx6ull successful ......"
     cd ..
 
     if [ -f "${QT6_SRC_PATH}/scripts/gen_env_file.sh" ]; then
         chmod 777 ${QT6_SRC_PATH}/scripts/gen_env_file.sh
-        ${QT6_SRC_PATH}/scripts/gen_env_file.sh RkEnv.sh /usr/lib/Qt6 /dev/dri/card0
-        if [ -f "${QT6_SRC_PATH}/scripts/RkEnv.sh" ]; then
-            chmod 777 ${QT6_SRC_PATH}/scripts/RkEnv.sh
+        ${QT6_SRC_PATH}/scripts/gen_env_file.sh IMXEnv.sh /usr/lib/Qt6 /dev/fb0
+        if [ -f "${QT6_SRC_PATH}/scripts/IMXEnv.sh" ]; then
+            chmod 777 ${QT6_SRC_PATH}/scripts/IMXEnv.sh
 
-            print_info "cp ${QT6_SRC_PATH}/scripts/RkEnv.sh to ${RV1126_INSTALL_PATH}"
-            ${SUDO_CMD} cp -a ${QT6_SRC_PATH}/scripts/RkEnv.sh ${RV1126_INSTALL_PATH}
+            print_info "cp ${QT6_SRC_PATH}/scripts/IMXEnv.sh to ${IMX6ULL_INSTALL_PATH}"
+            ${SUDO_CMD} cp -a ${QT6_SRC_PATH}/scripts/IMXEnv.sh ${IMX6ULL_INSTALL_PATH}
         fi
     fi
 
@@ -631,8 +634,8 @@ function clean()
         rm -rf ${BUILD_HOST_TEMPDIR}
     fi
 
-    if [ -d ${BUILD_RV1126_TEMPDIR} ]; then
-        rm -rf ${BUILD_RV1126_TEMPDIR}
+    if [ -d ${BUILD_IMX6ULL_TEMPDIR} ]; then
+        rm -rf ${BUILD_IMX6ULL_TEMPDIR}
     fi
 
     if [ -d  build_iconv ]; then
@@ -646,13 +649,13 @@ function clean()
 
 function help()
 {
-    echo "Usage: ./build_rv1126_qt6.sh [OPTION]"
+    echo "Usage: ./build_imx6ull_qt6.sh [OPTION]"
     echo "[OPTION]:"
     echo "=========================================================="
     echo "   0   clean                清除构建缓存"
     echo "   1   host_install_dep     构建主机安装依赖"
     echo "   2   build_qt6_host       构建主机目标QT6"
-    echo "   3   build_qt6_rv1126     交叉编译目标RV1126上的QT6"
+    echo "   3   build_qt6_imx6ull    交叉编译目标imx6ull上的QT6"
     echo "=========================================================="
 }
 
