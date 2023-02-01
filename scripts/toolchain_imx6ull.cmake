@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.16)
 include_guard(GLOBAL)
 
 set(CMAKE_SYSTEM_NAME Linux)
-set(CMAKE_SYSTEM_VERSION 12.2.1)
+set(CMAKE_SYSTEM_VERSION 10.3.1)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
-set(CMAKE_FIND_ROOT_PATH /opt/toolchain/gcc-arm-12.2-2022.12-x86_64-arm-none-linux-gnueabihf)
+set(CMAKE_FIND_ROOT_PATH /opt/toolchain/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf)
 set(CMAKE_C_COMPILER ${CMAKE_FIND_ROOT_PATH}/bin/arm-none-linux-gnueabihf-gcc)
 set(CMAKE_CXX_COMPILER ${CMAKE_FIND_ROOT_PATH}/bin/arm-none-linux-gnueabihf-g++)
 
