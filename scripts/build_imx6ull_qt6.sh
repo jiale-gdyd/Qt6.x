@@ -649,7 +649,7 @@ function clean()
 
 function help()
 {
-    echo "Usage: ./build_imx6ull_qt6.sh [OPTION]"
+    echo "Usage: $0 [OPTION]"
     echo "[OPTION]:"
     echo "=========================================================="
     echo "   0   clean                清除构建缓存"
