@@ -25,6 +25,7 @@ This a pure QML module and it does not have a C++ API.
 \section1 Articles and Guides
 
 \list
+    \li \l{Qt Quick 3D Physics Shapes and Bodies}
     \li \l{Qt Quick 3D Physics Units}{Qt Quick 3D Physics Units}
     \li \l{Qt Quick 3D Physics Cooking}{Qt Quick 3D Physics Cooking}
 \endlist
@@ -41,6 +42,7 @@ The best way to see what Qt Quick 3D Physics can do is to check out the examples
     \li \l{Qt Quick 3D Physics - Custom Shapes Example}{Custom Shapes}
     \li \l{Qt Quick 3D Physics - Cannon Example}{Cannon}
     \li \l{Qt Quick 3D Physics - Impeller Example}{Impeller}
+    \li \l{Qt Quick 3D Physics - CharacterController Example}{Character Controller}
 \endlist
 
 \section1 Reference
@@ -48,6 +50,8 @@ The best way to see what Qt Quick 3D Physics can do is to check out the examples
     \li \l{Qt Quick 3D Physics QML Types}
 \endlist
 
+\note There are API changes compared to the Tech Preview API (Qt version 6.4).
+See the \l {Qt Quick 3D Physics API Changes from Tech Preview} for the difference.
 
 \section1 Related Modules
 

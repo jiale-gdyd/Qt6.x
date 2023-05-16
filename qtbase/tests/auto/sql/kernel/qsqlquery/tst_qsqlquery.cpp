@@ -4,6 +4,9 @@
 #include <QTest>
 #include <QtSql/QtSql>
 
+#include <QtCore/QDateTime>
+#include <QtCore/QTimeZone>
+
 #include <numeric>
 
 #include "../qsqldatabase/tst_databases.h"
@@ -226,6 +229,9 @@ private slots:
     void sqlite_real_data() { generic_data("QSQLITE"); }
     void sqlite_real();
 
+    void prepared_query_json_row_data() { generic_data(); }
+    void prepared_query_json_row();
+
     void aggregateFunctionTypes_data() { generic_data(); }
     void aggregateFunctionTypes();
 
@@ -401,7 +407,7 @@ void tst_QSqlQuery::createTestTables(QSqlDatabase db)
     if (dbType == QSqlDriver::PostgreSQL) {
         QVERIFY_SQL(q, exec(QLatin1String(
                                 "create table %1 (id serial NOT NULL, t_varchar varchar(20), "
-                                "t_char char(20), primary key(id)) WITH OIDS").arg(qtest)));
+                                "t_char char(20), primary key(id))").arg(qtest)));
     } else {
         QVERIFY_SQL(q, exec(QLatin1String(
                                 "create table %1 (id int %2 NOT NULL, t_varchar varchar(20), "
@@ -1489,16 +1495,8 @@ void tst_QSqlQuery::forwardOnly()
 
     QCOMPARE(q.at(), QSql::AfterLastRow);
 
-QT_WARNING_PUSH
-QT_WARNING_DISABLE_DEPRECATED
-    QSqlQuery q2 = q;
-QT_WARNING_POP
-
-    QVERIFY(q2.isForwardOnly());
-
     QVERIFY_SQL(q, exec(QLatin1String("select * from %1 order by id").arg(qtest)));
     QVERIFY(q.isForwardOnly());
-    QVERIFY(q2.isForwardOnly());
     QCOMPARE(q.at(), QSql::BeforeFirstRow);
 
     QVERIFY_SQL(q, seek(3));
@@ -1793,9 +1791,9 @@ void tst_QSqlQuery::writeNull()
     QMultiHash<QString, QVariant> nullableTypes = {
         {"varchar(20)", u"not null"_s},
         {"varchar(20)", "not null"_ba},
-        {"date", QDateTime::currentDateTime()},
-        {"date", QDate::currentDate()},
-        {"date", QTime::currentTime()},
+        {tst_Databases::dateTimeTypeName(db), QDateTime::currentDateTime()},
+        {tst_Databases::dateTypeName(db), QDate::currentDate()},
+        {tst_Databases::timeTypeName(db), QTime::currentTime()},
     };
     if (dbType == QSqlDriver::PostgreSQL)
         nullableTypes["uuid"] = QUuid::createUuid();
@@ -3835,7 +3833,7 @@ void tst_QSqlQuery::QTBUG_5251()
     tst_Databases::safeDropTable(db, timetest);
     QSqlQuery q(db);
     QVERIFY_SQL(q, exec(QLatin1String("CREATE TABLE %1 (t TIME)").arg(timetest)));
-    QVERIFY_SQL(q, exec(QLatin1String("INSERT INTO VALUES ('1:2:3.666')").arg(timetest)));
+    QVERIFY_SQL(q, exec(QLatin1String("INSERT INTO %1 VALUES ('1:2:3.666')").arg(timetest)));
 
     QSqlTableModel timetestModel(0, db);
     timetestModel.setEditStrategy(QSqlTableModel::OnManualSubmit);
@@ -4025,8 +4023,6 @@ void tst_QSqlQuery::QTBUG_21884()
 */
 void tst_QSqlQuery::QTBUG_16967()
 {
-QT_WARNING_PUSH
-QT_WARNING_DISABLE_DEPRECATED
     QSqlQuery q2;
     QFETCH(QString, dbName);
     {
@@ -4039,7 +4035,7 @@ QT_WARNING_DISABLE_DEPRECATED
         QSqlDatabase db = QSqlDatabase::database(dbName);
         CHECK_DATABASE(db);
         QSqlQuery q(db);
-        q2 = q;
+        q2 = QSqlQuery(q.lastQuery(), db);
         q.prepare("CREATE TABLE t1 (id INTEGER PRIMARY KEY, str TEXT);");
         db.close();
         QCOMPARE(db.lastError().type(), QSqlError::NoError);
@@ -4048,7 +4044,7 @@ QT_WARNING_DISABLE_DEPRECATED
         QSqlDatabase db = QSqlDatabase::database(dbName);
         CHECK_DATABASE(db);
         QSqlQuery q(db);
-        q2 = q;
+        q2 = QSqlQuery(q.lastQuery(), db);
         q2.prepare("CREATE TABLE t1 (id INTEGER PRIMARY KEY, str TEXT);");
         q2.exec();
         db.close();
@@ -4058,7 +4054,7 @@ QT_WARNING_DISABLE_DEPRECATED
         QSqlDatabase db = QSqlDatabase::database(dbName);
         CHECK_DATABASE(db);
         QSqlQuery q(db);
-        q2 = q;
+        q2 = QSqlQuery(q.lastQuery(), db);
         q.exec("INSERT INTO t1 (id, str) VALUES(1, \"test1\");");
         db.close();
         QCOMPARE(db.lastError().type(), QSqlError::NoError);
@@ -4067,12 +4063,11 @@ QT_WARNING_DISABLE_DEPRECATED
         QSqlDatabase db = QSqlDatabase::database(dbName);
         CHECK_DATABASE(db);
         QSqlQuery q(db);
-        q2 = q;
+        q2 = QSqlQuery(q.lastQuery(), db);
         q.exec("SELECT * FROM t1;");
         db.close();
         QCOMPARE(db.lastError().type(), QSqlError::NoError);
     }
-QT_WARNING_POP
 }
 
 /* In SQLite, when a boolean value is bound to a placeholder, it should be
@@ -4443,6 +4438,43 @@ void tst_QSqlQuery::sqlite_real()
     QCOMPARE(q.value(0).toDouble(), 5.6);
 }
 
+void tst_QSqlQuery::prepared_query_json_row()
+{
+    QFETCH(QString, dbName);
+    QSqlDatabase db = QSqlDatabase::database(dbName);
+    CHECK_DATABASE(db);
+    if (tst_Databases::getDatabaseType(db) != QSqlDriver::MySqlServer &&
+        tst_Databases::getDatabaseType(db) != QSqlDriver::PostgreSQL) {
+        QSKIP("PostgreSQL / MySQL specific test");
+    }
+
+    const QString tableName(qTableName("tableWithJsonRow", __FILE__, db));
+    tst_Databases::safeDropTable(db, tableName);
+
+    QSqlQuery q(db);
+    const QLatin1String vals[] = {QLatin1String("{\"certificateNumber\": \"CERT-001\"}"),
+                                  QLatin1String("{\"certificateNumber\": \"CERT-002\"}")};
+    QVERIFY_SQL(q, exec(QLatin1String("CREATE TABLE %1 (id INTEGER, value JSON)").arg(tableName)));
+    for (const QLatin1String &json : vals) {
+        QVERIFY_SQL(q, exec(QLatin1String("INSERT INTO %1 (id, value) VALUES (1, '%2')")
+                            .arg(tableName, json)));
+    }
+
+    QVERIFY_SQL(q, prepare(QLatin1String("SELECT id, value FROM %1 WHERE id = ?").arg(tableName)));
+    q.addBindValue(1);
+    QVERIFY_SQL(q, exec());
+
+    size_t iCount = 0;
+    while (q.next()) {
+        QVERIFY(iCount < sizeof(vals));
+        const int id = q.value(0).toInt();
+        const QByteArray json = q.value(1).toByteArray();
+        QCOMPARE(id, 1);
+        QCOMPARE(json, vals[iCount].data());
+        ++iCount;
+    }
+}
+
 void tst_QSqlQuery::aggregateFunctionTypes()
 {
     QFETCH(QString, dbName);
@@ -4701,10 +4733,10 @@ void tst_QSqlQuery::integralTypesMysql()
 
 void tst_QSqlQuery::QTBUG_57138()
 {
-    const QDateTime utc = QDateTime(QDate(2150, 1, 5), QTime(14, 0, 0, 123), Qt::UTC);
-    const QDateTime localtime = QDateTime(QDate(2150, 1, 5), QTime(14, 0, 0, 123), Qt::LocalTime);
-    const QDateTime tzoffset = QDateTime(QDate(2150, 1, 5), QTime(14, 0, 0, 123),
-                                         Qt::OffsetFromUTC, 3600);
+    const QDateTime utc(QDate(2150, 1, 5), QTime(14, 0, 0, 123), QTimeZone::UTC);
+    const QDateTime localtime(QDate(2150, 1, 5), QTime(14, 0, 0, 123));
+    const QDateTime tzoffset(QDate(2150, 1, 5), QTime(14, 0, 0, 123),
+                             QTimeZone::fromSecondsAheadOfUtc(3600));
 
     QFETCH(QString, dbName);
     QSqlDatabase db = QSqlDatabase::database(dbName);

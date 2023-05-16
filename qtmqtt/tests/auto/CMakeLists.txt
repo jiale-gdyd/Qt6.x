@@ -1,9 +1,8 @@
-# Generated from auto.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 if(WIN32 OR (LINUX AND NOT CMAKE_CROSSCOMPILING))
-# special case begin
 #   add_subdirectory(cmake)
-# special case end
     add_subdirectory(conformance)
     add_subdirectory(qmqttconnectionproperties)
     add_subdirectory(qmqttcontrolpacket)

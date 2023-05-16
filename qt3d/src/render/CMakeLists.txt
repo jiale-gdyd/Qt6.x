@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from render.pro.
 
 #####################################################################
@@ -308,6 +311,9 @@ qt_internal_add_module(3DRender
         Qt::CorePrivate
         Qt::3DCorePrivate
 )
+
+# QTransform conflicts
+set_target_properties(3DRender PROPERTIES UNITY_BUILD OFF)
 
 # Resources:
 set(materialsystem_resource_files

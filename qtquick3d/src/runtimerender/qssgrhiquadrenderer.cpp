@@ -107,20 +107,32 @@ void QSSGRhiQuadRenderer::recordRenderQuad(QSSGRhiContext *rhiCtx,
         ps->targetBlend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
         ps->targetBlend.srcAlpha = QRhiGraphicsPipeline::One;
         ps->targetBlend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+    } else { // set to default, since we may not have had a renderable previously
+        ps->targetBlend.srcColor = QRhiGraphicsPipeline::SrcAlpha;
+        ps->targetBlend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+        ps->targetBlend.srcAlpha = QRhiGraphicsPipeline::One;
+        ps->targetBlend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
     }
 
+    QRhiGraphicsPipeline *pipeline = rhiCtx->pipeline(QSSGGraphicsPipelineStateKey::create(*ps, rpDesc, srb), rpDesc, srb);
+    // Make sure that we were able to create the pipeline before trying to use it
+    // When GraphicsPipeline creation fails it should return nullptr and print a warning
+    if (!pipeline)
+        return;
+
     QRhiCommandBuffer *cb = rhiCtx->commandBuffer();
-    cb->setGraphicsPipeline(rhiCtx->pipeline(QSSGGraphicsPipelineStateKey::create(*ps, rpDesc, srb), rpDesc, srb));
+    cb->setGraphicsPipeline(pipeline);
     cb->setShaderResources(srb);
     cb->setViewport(ps->viewport);
 
     quint32 vertexOffset = flags.testAnyFlags(RenderBehind) ? 5 * 4 * sizeof(float) : 0;
 
     QRhiCommandBuffer::VertexInput vb(m_vbuf->buffer(), vertexOffset);
-
+    Q_QUICK3D_PROFILE_START(QQuick3DProfiler::Quick3DRenderCall);
     cb->setVertexInput(0, 1, &vb, m_ibuf->buffer(), m_ibuf->indexFormat());
     cb->drawIndexed(6);
     QSSGRHICTX_STAT(rhiCtx, drawIndexed(6, 1));
+    Q_QUICK3D_PROFILE_END_WITH_STRING(QQuick3DProfiler::Quick3DRenderCall, 36llu | (1llu << 32), QByteArrayLiteral("render_quad"));
 }
 
 void QSSGRhiQuadRenderer::recordRenderQuadPass(QSSGRhiContext *rhiCtx,
@@ -160,18 +172,30 @@ void QSSGRhiCubeRenderer::recordRenderCube(QSSGRhiContext *rhiCtx, QSSGRhiGraphi
         ps->targetBlend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
         ps->targetBlend.srcAlpha = QRhiGraphicsPipeline::One;
         ps->targetBlend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+    } else { // set to default, since we may not have had a renderable previously
+        ps->targetBlend.srcColor = QRhiGraphicsPipeline::SrcAlpha;
+        ps->targetBlend.dstColor = QRhiGraphicsPipeline::OneMinusSrcAlpha;
+        ps->targetBlend.srcAlpha = QRhiGraphicsPipeline::One;
+        ps->targetBlend.dstAlpha = QRhiGraphicsPipeline::OneMinusSrcAlpha;
     }
 
+    QRhiGraphicsPipeline *pipeline = rhiCtx->pipeline(QSSGGraphicsPipelineStateKey::create(*ps, rpDesc, srb), rpDesc, srb);
+    // Make sure that we were able to create the pipeline before trying to use it
+    // When GraphicsPipeline creation fails it should return nullptr and print a warning
+    if (!pipeline)
+        return;
+
     QRhiCommandBuffer *cb = rhiCtx->commandBuffer();
-    cb->setGraphicsPipeline(rhiCtx->pipeline(QSSGGraphicsPipelineStateKey::create(*ps, rpDesc, srb), rpDesc, srb));
+    cb->setGraphicsPipeline(pipeline);
     cb->setShaderResources(srb);
     cb->setViewport(ps->viewport);
 
     QRhiCommandBuffer::VertexInput vb(m_vbuf->buffer(), 0);
-
+    Q_QUICK3D_PROFILE_START(QQuick3DProfiler::Quick3DRenderCall);
     cb->setVertexInput(0, 1, &vb, m_ibuf->buffer(), m_ibuf->indexFormat());
     cb->drawIndexed(36);
     QSSGRHICTX_STAT(rhiCtx, drawIndexed(36, 1));
+    Q_QUICK3D_PROFILE_END_WITH_STRING(QQuick3DProfiler::Quick3DRenderCall, 36, QByteArrayLiteral("render_cube"));
 }
 
 void QSSGRhiCubeRenderer::ensureBuffers(QSSGRhiContext *rhiCtx, QRhiResourceUpdateBatch *rub)

@@ -24,9 +24,6 @@
 
 QT_BEGIN_NAMESPACE
 
-QStringMap Node::operators;
-QMap<QString, Node::NodeType> Node::goals;
-
 /*!
   \class Node
   \brief The Node class is the base class for all the nodes in QDoc's parse tree.
@@ -49,88 +46,6 @@ QMap<QString, Node::NodeType> Node::goals;
 
   \sa Aggregate, ClassNode, PropertyNode
  */
-
-/*!
-  Initialize the map of search goals. This is called once
-  by QDocDatabase::initializeDB(). The map key is a string
-  representing a value in the enum Node::NodeType. The map value
-  is the enum value.
-
-  There should be an entry in the map for each value in the
-  NodeType enum.
- */
-void Node::initialize()
-{
-    goals.insert("namespace", Node::Namespace);
-    goals.insert("class", Node::Class);
-    goals.insert("struct", Node::Struct);
-    goals.insert("union", Node::Union);
-    goals.insert("header", Node::HeaderFile);
-    goals.insert("headerfile", Node::HeaderFile);
-    goals.insert("page", Node::Page);
-    goals.insert("enum", Node::Enum);
-    goals.insert("example", Node::Example);
-    goals.insert("externalpage", Node::ExternalPage);
-    goals.insert("typedef", Node::Typedef);
-    goals.insert("typealias", Node::TypeAlias);
-    goals.insert("function", Node::Function);
-    goals.insert("proxy", Node::Proxy);
-    goals.insert("property", Node::Property);
-    goals.insert("variable", Node::Variable);
-    goals.insert("group", Node::Group);
-    goals.insert("module", Node::Module);
-    goals.insert("qmltype", Node::QmlType);
-    goals.insert("qmlmodule", Node::QmlModule);
-    goals.insert("qmlproperty", Node::QmlProperty);
-    goals.insert("qmlsignal", Node::Function);
-    goals.insert("qmlsignalhandler", Node::Function);
-    goals.insert("qmlmethod", Node::Function);
-    goals.insert("qmlvaluetype", Node::QmlValueType);
-    goals.insert("qmlbasictype", Node::QmlValueType); // deprecated!
-    goals.insert("sharedcomment", Node::SharedComment);
-    goals.insert("collection", Node::Collection);
-}
-
-/*!
-  If this Node's type is \a from, change the type to \a to
-  and return \c true. Otherwise return false. This function
-  is used to change Qml node types to Javascript node types,
-  because these nodes are created as Qml nodes before it is
-  discovered that the entity represented by the node is not
-  Qml but javascript.
-
-  Note that if the function returns true, which means the node
-  type was indeed changed, then the node's Genus is also changed
-  from QML to JS.
-
-  The function also works in the other direction, but there is
-  no use case for that.
- */
-bool Node::changeType(NodeType from, NodeType to)
-{
-    if (m_nodeType == from) {
-        m_nodeType = to;
-        switch (to) {
-        case QmlType:
-        case QmlModule:
-        case QmlProperty:
-        case QmlValueType:
-            setGenus(Node::QML);
-            break;
-        case JsType:
-        case JsModule:
-        case JsProperty:
-        case JsBasicType:
-            setGenus(Node::JS);
-            break;
-        default:
-            setGenus(Node::CPP);
-            break;
-        }
-        return true;
-    }
-    return false;
-}
 
 /*!
   Returns \c true if the node \a n1 is less than node \a n2. The
@@ -188,7 +103,7 @@ bool Node::nodeNameLessThan(const Node *n1, const Node *n2)
   \value ExternalPage The Node subclass is ExternalPageNode, which is for
          linking to an external page.
   \value Function The Node subclass is FunctionNode, which can represent C++,
-         QML, and Javascript functions.
+         and QML functions.
   \value Typedef The Node subclass is TypedefNode, which represents a C++
          typedef.
   \value Property The Node subclass is PropertyNode, which represents a use of
@@ -204,16 +119,8 @@ bool Node::nodeNameLessThan(const Node *n1, const Node *n2)
          module.
   \value QmlProperty The Node subclass is QmlPropertyNode, which represents a
          property in a QML type.
-  \value QmlBasicType The Node subclass is QmlBasicTypeNode, which represents a
-         basic type like int, etc.
-  \value JsType The Node subclass is QmlTypeNode, which represents a javascript
-         type.
-  \value JsModule The Node subclass is CollectionNode, which represents a
-         javascript module.
-  \value JsProperty The Node subclass is QmlPropertyNode, which represents a
-         javascript property.
-  \value JsBasicType The Node subclass is QmlBasicTypeNode, which represents a
-         basic type like int, etc.
+  \value QmlBasicType The Node subclass is QmlTypeNode, which represents a
+         value type like int, etc.
   \value SharedComment The Node subclass is SharedCommentNode, which represents
          a collection of nodes that share the same documentation comment.
   \omitvalue Collection
@@ -227,14 +134,13 @@ bool Node::nodeNameLessThan(const Node *n1, const Node *n2)
   \enum Node::Genus
 
   An unsigned char value that specifies whether the Node represents a
-  C++ element, a QML element, a javascript element, or a text document.
+  C++ element, a QML element, or a text document.
   The Genus values are also passed to search functions to specify the
   Genus of Tree Node that can satisfy the search.
 
   \value DontCare The Genus is not specified. Used when calling Tree search functions to indicate
                   the search can accept any Genus of Node.
   \value CPP The Node represents a C++ element.
-  \value JS The Node represents a javascript element.
   \value QML The Node represents a QML element.
   \value DOC The Node represents a text document.
 */
@@ -283,24 +189,6 @@ bool Node::nodeNameLessThan(const Node *n1, const Node *n2)
   \value PreviousLink
   \value ContentsLink
  */
-
-/*!
-  \enum Node::PageType
-
-  An unsigned char value that indicates what kind of documentation page
-  the Node represents. I think it is not very useful anymore.
-
-  \value NoPageType
-  \value AttributionPage
-  \value ApiPage
-  \value ArticlePage
-  \value ExamplePage
-  \value HowToPage
-  \value OverviewPage
-  \value TutorialPage
-  \value FAQPage
-  \omitvalue OnBeyondZebra
-*/
 
 /*!
   \enum Node::FlagValue
@@ -370,26 +258,6 @@ bool Node::nodeNameLessThan(const Node *n1, const Node *n2)
   Returns true if this node was created from something in an index file.
  */
 
-/*! \fn bool Node::isJsBasicType() const
-  Returns true if the node type is \c JsBasicType.
- */
-
-/*! \fn bool Node::isJsModule() const
-  Returns true if the node type is \c JsModule.
- */
-
-/*! \fn bool Node::isJsNode() const
-  Returns true if this node's Genus value is \c JS.
- */
-
-/*! \fn bool Node::isJsProperty() const
-  Returns true if the node type is \c JsProperty.
- */
-
-/*! \fn bool Node::isJsType() const
-  Returns true if the node type is \c JsType.
- */
-
 /*! \fn bool Node::isModule() const
   Returns true if the node type is \c Module.
  */
@@ -443,7 +311,7 @@ bool Node::nodeNameLessThan(const Node *n1, const Node *n2)
  */
 
 /*! \fn bool Node::isQmlType() const
-  Returns true if the node type is \c QmlType.
+  Returns true if the node type is \c QmlType or \c QmlValueType.
  */
 
 /*! \fn bool Node::isRelatedNonmember() const
@@ -628,17 +496,6 @@ QString Node::fullName(const Node *relative) const
 }
 
 /*!
-  Try to match this node's type with one of the \a types.
-  If a match is found, return true. If no match is found,
-  return false.
- */
-bool Node::match(const QList<int> &types) const
-{
-    return std::any_of(types.cbegin(), types.cend(),
-                       [this](const int type) { return nodeType() == type; });
-}
-
-/*!
   Sets this Node's Doc to \a doc. If \a replace is false and
   this Node already has a Doc, and if this doc is not marked
   with the \\reimp command, a warning is reported that the
@@ -694,95 +551,10 @@ Node::Node(NodeType type, Aggregate *parent, QString name)
 {
     if (m_parent)
         m_parent->addChild(this);
-    m_outSubDir = Generator::outputSubdir();
-    if (operators.isEmpty()) {
-        operators.insert("++", "inc");
-        operators.insert("--", "dec");
-        operators.insert("==", "eq");
-        operators.insert("!=", "ne");
-        operators.insert("<<", "lt-lt");
-        operators.insert(">>", "gt-gt");
-        operators.insert("+=", "plus-assign");
-        operators.insert("-=", "minus-assign");
-        operators.insert("*=", "mult-assign");
-        operators.insert("/=", "div-assign");
-        operators.insert("%=", "mod-assign");
-        operators.insert("&=", "bitwise-and-assign");
-        operators.insert("|=", "bitwise-or-assign");
-        operators.insert("^=", "bitwise-xor-assign");
-        operators.insert("<<=", "bitwise-left-shift-assign");
-        operators.insert(">>=", "bitwise-right-shift-assign");
-        operators.insert("||", "logical-or");
-        operators.insert("&&", "logical-and");
-        operators.insert("()", "call");
-        operators.insert("[]", "subscript");
-        operators.insert("->", "pointer");
-        operators.insert("->*", "pointer-star");
-        operators.insert("+", "plus");
-        operators.insert("-", "minus");
-        operators.insert("*", "mult");
-        operators.insert("/", "div");
-        operators.insert("%", "mod");
-        operators.insert("|", "bitwise-or");
-        operators.insert("&", "bitwise-and");
-        operators.insert("^", "bitwise-xor");
-        operators.insert("!", "not");
-        operators.insert("~", "bitwise-not");
-        operators.insert("<=", "lt-eq");
-        operators.insert(">=", "gt-eq");
-        operators.insert("<", "lt");
-        operators.insert(">", "gt");
-        operators.insert("=", "assign");
-        operators.insert(",", "comma");
-        operators.insert("delete[]", "delete-array");
-        operators.insert("delete", "delete");
-        operators.insert("new[]", "new-array");
-        operators.insert("new", "new");
-    }
-    setPageType(getPageType(type));
-    setGenus(getGenus(type));
-}
 
-/*!
-  Determines the appropriate PageType value for the NodeType
-  value \a t and returns that PageType value.
- */
-Node::PageType Node::getPageType(Node::NodeType t)
-{
-    switch (t) {
-    case Node::Namespace:
-    case Node::Class:
-    case Node::Struct:
-    case Node::Union:
-    case Node::HeaderFile:
-    case Node::Enum:
-    case Node::Function:
-    case Node::Typedef:
-    case Node::Property:
-    case Node::Variable:
-    case Node::QmlType:
-    case Node::QmlProperty:
-    case Node::QmlValueType:
-    case Node::JsType:
-    case Node::JsProperty:
-    case Node::JsBasicType:
-    case Node::SharedComment:
-        return Node::ApiPage;
-    case Node::Example:
-        return Node::ExamplePage;
-    case Node::Page:
-    case Node::ExternalPage:
-        return Node::NoPageType;
-    case Node::Group:
-    case Node::Module:
-    case Node::QmlModule:
-    case Node::JsModule:
-    case Node::Collection:
-        return Node::OverviewPage;
-    case Node::Proxy:
-    default:
-        return Node::NoPageType;
-    }
+    m_outSubDir = Generator::outputSubdir();
+
+    setGenus(getGenus(type));
 }
 
 /*!
@@ -814,11 +586,6 @@ Node::Genus Node::getGenus(Node::NodeType t)
     case Node::QmlProperty:
     case Node::QmlValueType:
         return Node::QML;
-    case Node::JsType:
-    case Node::JsModule:
-    case Node::JsProperty:
-    case Node::JsBasicType:
-        return Node::JS;
     case Node::Page:
     case Node::Group:
     case Node::Example:
@@ -908,20 +675,11 @@ QString Node::nodeTypeString(NodeType t)
     case QmlType:
         return QLatin1String("QML type");
     case QmlValueType:
-        return QLatin1String("QML basic type");
+        return QLatin1String("QML value type");
     case QmlModule:
         return QLatin1String("QML module");
     case QmlProperty:
         return QLatin1String("QML property");
-
-    case JsType:
-        return QLatin1String("JS type");
-    case JsBasicType:
-        return QLatin1String("JS basic type");
-    case JsModule:
-        return QLatin1String("JS module");
-    case JsProperty:
-        return QLatin1String("JS property");
 
     case SharedComment:
         return QLatin1String("shared comment");
@@ -931,27 +689,6 @@ QString Node::nodeTypeString(NodeType t)
         break;
     }
     return QString();
-}
-
-/*!
-  Set the page type according to the string \a t.
- */
-void Node::setPageType(const QString &t)
-{
-    if ((t == "API") || (t == "api"))
-        m_pageType = ApiPage;
-    else if (t == "howto")
-        m_pageType = HowToPage;
-    else if (t == "overview")
-        m_pageType = OverviewPage;
-    else if (t == "tutorial")
-        m_pageType = TutorialPage;
-    else if (t == "faq")
-        m_pageType = FAQPage;
-    else if (t == "article")
-        m_pageType = ArticlePage;
-    else if (t == "example")
-        m_pageType = ExamplePage;
 }
 
 /*! Converts the boolean value \a b to an enum representation
@@ -1067,18 +804,18 @@ Node::ThreadSafeness Node::inheritedThreadSafeness() const
 }
 
 /*!
-  If this node is a QML or JS type node, return a pointer to
-  it. If it is a child of a QML or JS type node, return the
-  pointer to its parent QMLor JS type node. Otherwise return
+  If this node is a QML type node, return a pointer to
+  it. If it is a child of a QML type node, return the
+  pointer to its parent QML type node. Otherwise return
   0;
  */
 QmlTypeNode *Node::qmlTypeNode()
 {
-    if (isQmlNode() || isJsNode()) {
+    if (isQmlNode()) {
         Node *n = this;
-        while (n && !(n->isQmlType() || n->isJsType()))
+        while (n && !(n->isQmlType()))
             n = n->parent();
-        if (n && (n->isQmlType() || n->isJsType()))
+        if (n && (n->isQmlType()))
             return static_cast<QmlTypeNode *>(n);
     }
     return nullptr;
@@ -1215,7 +952,7 @@ QString Node::fullDocumentName() const
         if (!n->name().isEmpty())
             pieces.insert(0, n->name());
 
-        if ((n->isQmlType() || n->isJsType()) && !n->logicalModuleName().isEmpty()) {
+        if (n->isQmlType() && !n->logicalModuleName().isEmpty()) {
             pieces.insert(0, n->logicalModuleName());
             break;
         }
@@ -1232,7 +969,7 @@ QString Node::fullDocumentName() const
 
     // Create a name based on the type of the ancestor node.
     QString concatenator = "::";
-    if (n->isQmlType() || n->isJsType())
+    if (n->isQmlType())
         concatenator = QLatin1Char('.');
 
     if (n->isTextPageNode())
@@ -1275,18 +1012,6 @@ void Node::setDeprecatedSince(const QString &sinceVersion)
 
 /*! void Node::setGenus(Genus t)
   Sets this node's Genus to \a t.
-*/
-
-/*! \fn PageType Node::pageType() const
-  Returns this node's page type.
-
-  \sa PageType
-*/
-
-/*! \fn void Node::setPageType(PageType t)
-  Sets this node's page type to \a t.
-
-  \sa PageType
 */
 
 /*! \fn  QString Node::signature(bool values, bool noReturnType, bool templateParams) const
@@ -1360,11 +1085,6 @@ void Node::setDeprecatedSince(const QString &sinceVersion)
   of something. This function is called when the \c relates command is seen.
  */
 
-/*! \fn void Node::setOutputFileName(const QString &f)
-  In a PageNode, this function sets the node's output file name to \a f.
-  In a non-PageNode, this function does nothing.
- */
-
 /*! \fn void Node::addMember(Node *node)
   In a CollectionNode, this function adds \a node to the collection
   node's members list. It does nothing if this node is not a CollectionNode.
@@ -1388,16 +1108,6 @@ void Node::setDeprecatedSince(const QString &sinceVersion)
 /*! \fn void Node::setWrapper()
   If this node is a ClassNode or a QmlTypeNode, the node's wrapper flag
   data member is set to \c true.
- */
-
-/*! \fn void Node::getMemberNamespaces(NodeMap& out)
-  If this is a CollectionNode, \a out is loaded with all the collection
-  members that are namespaces.
- */
-
-/*! \fn void getMemberClasses(NodeMap& out) const { }
-  If this is a CollectionNode, \a out is loaded with all the collection
-  members that are classes.
  */
 
 /*! \fn void Node::setDataType(const QString &dataType)
@@ -1424,11 +1134,6 @@ void Node::setDeprecatedSince(const QString &sinceVersion)
   If this node is a QmlPropertyNode or a FunctionNode, this function
   returns the name of the parent node. Otherwise it returns an empty
   string.
- */
-
-/*! \fn void Node::setNoAutoList(bool b)
-  If this node is a PageNode, the node's \c {no autolist} flag is set to \a b.
-  Otherwise the function does nothing.
  */
 
 /*! \fn bool Node::docMustBeGenerated() const
@@ -1503,11 +1208,6 @@ void Node::setDeprecatedSince(const QString &sinceVersion)
 /*! \fn QString Node::nameForLists() const
   If this node is a PageNode or a HeaderNode, title() is returned.
   Otherwise name() is returned.
- */
-
-/*! \fn QString Node::outputFileName() const
-  If this node is a PageNode, the name of the output file that will be
-  generated for the node is returned. Otherwise an empty string is returned.
  */
 
 /*! \fn QString Node::obsoleteLink() const
@@ -1611,7 +1311,7 @@ void Node::setDeprecatedSince(const QString &sinceVersion)
 
 /*! \fn QString Node::qmlTypeName() const
   If this is a QmlPropertyNode or a FunctionNode representing a QML
-  or javascript methos, this function returns the qmlTypeName() of
+  method, this function returns the qmlTypeName() of
   the parent() node. Otherwise it returns the name data member.
  */
 
@@ -1645,7 +1345,7 @@ void Node::setDeprecatedSince(const QString &sinceVersion)
   version number is not absolutely necessary.
 
   The strings are stored in the appropriate data members for use
-  when the QML or javascript module page is generated.
+  when the QML module page is generated.
  */
 
 /*! \fn void Node::setLogicalModuleInfo(const QStringList &info)
@@ -1657,7 +1357,7 @@ void Node::setDeprecatedSince(const QString &sinceVersion)
   the minor version number is not strictly necessary.
 
   The strings are stored in the appropriate data members for use
-  when the QML or javascript module page is generated. This overload
+  when the QML module page is generated. This overload
   of the function is called when qdoc is reading an index file.
  */
 

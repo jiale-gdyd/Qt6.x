@@ -37,6 +37,11 @@ QSSGRef<QSSGRhiShaderPipeline> QSSGRenderer::getRhiCubemapShadowBlurYShader()
     return getBuiltinRhiShader(QByteArrayLiteral("cubeshadowblury"), m_cubemapShadowBlurYRhiShader);
 }
 
+QSSGRef<QSSGRhiShaderPipeline> QSSGRenderer::getRhiGridShader()
+{
+    return getBuiltinRhiShader(QByteArrayLiteral("grid"), m_gridShader);
+}
+
 QSSGRef<QSSGRhiShaderPipeline> QSSGRenderer::getRhiOrthographicShadowBlurXShader()
 {
     return getBuiltinRhiShader(QByteArrayLiteral("orthoshadowblurx"), m_orthographicShadowBlurXRhiShader);
@@ -161,12 +166,10 @@ QSSGRef<QSSGRhiShaderPipeline> QSSGRenderer::getRhiSimpleQuadShader()
 QSSGRef<QSSGRhiShaderPipeline> QSSGRenderer::getRhiLightmapUVRasterizationShader(LightmapUVRasterizationShaderMode mode)
 {
     switch (mode) {
-    case LightmapUVRasterizationShaderMode::BaseColorMap:
-        return getBuiltinRhiShader(QByteArrayLiteral("lightmapuvraster_basecolormap"), m_lightmapUVRasterShader_basecolormap);
-    case LightmapUVRasterizationShaderMode::EmissiveMap:
-        return getBuiltinRhiShader(QByteArrayLiteral("lightmapuvraster_emissivemap"), m_lightmapUVRasterShader_emissivemap);
-    case LightmapUVRasterizationShaderMode::BaseColorAndEmissiveMaps:
-        return getBuiltinRhiShader(QByteArrayLiteral("lightmapuvraster_both"), m_lightmapUVRasterShader_both);
+    case LightmapUVRasterizationShaderMode::Uv:
+        return getBuiltinRhiShader(QByteArrayLiteral("lightmapuvraster_uv"), m_lightmapUVRasterShader_uv);
+    case LightmapUVRasterizationShaderMode::UvTangent:
+        return getBuiltinRhiShader(QByteArrayLiteral("lightmapuvraster_uv_tangent"), m_lightmapUVRasterShader_uv_tangent);
     default:
         break;
     }
@@ -176,6 +179,11 @@ QSSGRef<QSSGRhiShaderPipeline> QSSGRenderer::getRhiLightmapUVRasterizationShader
 QSSGRef<QSSGRhiShaderPipeline> QSSGRenderer::getRhiLightmapDilateShader()
 {
     return getBuiltinRhiShader(QByteArrayLiteral("lightmapdilate"), m_lightmapDilateShader);
+}
+
+QSSGRef<QSSGRhiShaderPipeline> QSSGRenderer::getRhiDebugObjectShader()
+{
+    return getBuiltinRhiShader(QByteArrayLiteral("debugobject"), m_debugObjectShader);
 }
 
 QT_END_NAMESPACE

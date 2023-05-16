@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 qt_internal_add_module(DataVisualization
     TARGET_PRODUCT "Qt Data Visualization (Qt $$QT_VERSION)"
     TARGET_DESCRIPTION "3D Data Visualization component for Qt."

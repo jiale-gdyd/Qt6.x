@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 qt_internal_add_qml_module(SensorsQuick
     URI "QtSensors"
     VERSION "${PROJECT_VERSION}"
@@ -17,7 +20,6 @@ qt_internal_add_qml_module(SensorsQuick
         qmlproximitysensor.cpp qmlproximitysensor_p.h
         qmlrotationsensor.cpp qmlrotationsensor_p.h
         qmlsensor.cpp qmlsensor_p.h
-        # qmlsensorgesture.cpp qmlsensorgesture_p.h
         qmlsensorglobal.cpp qmlsensorglobal_p.h
         qmlsensorrange.cpp qmlsensorrange_p.h
         qmltapsensor.cpp qmltapsensor_p.h

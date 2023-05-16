@@ -181,10 +181,9 @@ bool QFormBuilderExtra::applyBuddy(const QString &buddyName, BuddyMode applyMode
         return false;
     }
 
-    const QWidgetList::const_iterator cend = widgets.constEnd();
-    for ( QWidgetList::const_iterator it =  widgets.constBegin(); it !=  cend; ++it) {
-        if (applyMode == BuddyApplyAll || !(*it)->isHidden()) {
-            label->setBuddy(*it);
+    for (auto *w : widgets) {
+        if (applyMode == BuddyApplyAll || !w->isHidden()) {
+            label->setBuddy(w);
             return true;
         }
     }
@@ -512,11 +511,10 @@ DomColorGroup *QFormBuilderExtra::saveColorGroup(const QPalette &palette,
     DomColorGroup *group = new DomColorGroup();
     QList<DomColorRole *> colorRoles;
 
-    const uint mask = palette.resolveMask();
-    for (int role = QPalette::WindowText; role < QPalette::NColorRoles; ++role) {
-        if (mask & (1 << role)) {
-            const QBrush &br = palette.brush(colorGroup, QPalette::ColorRole(role));
-
+    for (int r = QPalette::WindowText; r < QPalette::NColorRoles; ++r) {
+        const auto role = static_cast<QPalette::ColorRole>(r);
+        if (palette.isBrushSet(colorGroup, role)) {
+            const QBrush &br = palette.brush(colorGroup, role);
             DomColorRole *colorRole = new DomColorRole();
             colorRole->setElementBrush(saveBrush(br));
             colorRole->setAttributeRole(QLatin1String(colorRole_enum.valueToKey(role)));

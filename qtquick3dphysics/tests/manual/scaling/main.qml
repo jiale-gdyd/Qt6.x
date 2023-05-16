@@ -13,14 +13,15 @@ Window {
     visible: true
     title: qsTr("Qt Quick 3D Physics - Scaling test")
 
-    DynamicsWorld {
+    PhysicsWorld {
         id: physicsWorld
         gravity: Qt.vector3d(0, -9.81, 0)
         running: true
-        forceDebugView: true
+        forceDebugDraw: true
 
         typicalLength: 1
         typicalSpeed: 10
+        scene: viewport.scene
     }
 
     View3D {
@@ -121,8 +122,9 @@ Window {
 
                 DynamicRigidBody {
                     id: box
+                    massMode: DynamicRigidBody.CustomDensity
                     density: 10
-                    property var startPos: Qt.vector3d(-1, 1, 0)
+                    property vector3d startPos: Qt.vector3d(-1, 1, 0)
                     position: box.startPos
 
                     property real xf: xSlider.value
@@ -146,8 +148,9 @@ Window {
 
                 DynamicRigidBody {
                     id: sphere
+                    massMode: DynamicRigidBody.CustomDensity
                     density: 10
-                    property var startPos: Qt.vector3d(0, 1, 0)
+                    property vector3d startPos: Qt.vector3d(0, 1, 0)
                     position: sphere.startPos
 
                     collisionShapes: SphereShape {
@@ -165,8 +168,9 @@ Window {
 
                 DynamicRigidBody {
                     id: capsule
-                    property var startPos: Qt.vector3d(1, 1, 0)
+                    property vector3d startPos: Qt.vector3d(1, 1, 0)
                     position: capsule.startPos
+                    massMode: DynamicRigidBody.CustomDensity
                     density: 10
 
                     property real xf: xSlider.value

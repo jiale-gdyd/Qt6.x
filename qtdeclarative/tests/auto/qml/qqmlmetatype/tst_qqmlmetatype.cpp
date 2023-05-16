@@ -49,6 +49,10 @@ private slots:
 
     void enumsInRecursiveImport_data();
     void enumsInRecursiveImport();
+
+    void revertValueTypeAnimation();
+
+    void clearPropertyCaches();
 };
 
 class TestType : public QObject
@@ -709,6 +713,29 @@ void tst_qqmlmetatype::enumsInRecursiveImport()
     QScopedPointer<QObject> obj(c.create());
     QVERIFY(!obj.isNull());
     QTRY_COMPARE(obj->property("color").toString(), QString("green"));
+}
+
+void tst_qqmlmetatype::revertValueTypeAnimation()
+{
+    QQmlEngine engine;
+    QQmlComponent c(&engine, testFileUrl("animationOnValueType.qml"));
+    QVERIFY2(c.isReady(), qPrintable(c.errorString()));
+
+    QScopedPointer<QObject> o(c.create());
+    QTRY_COMPARE(o->property("letterSpacing").toDouble(), 24.0);
+    QCOMPARE(o->property("pointSize").toDouble(), 12.0);
+}
+
+void tst_qqmlmetatype::clearPropertyCaches()
+{
+    qmlClearTypeRegistrations();
+    qmlRegisterType<TestType>("ClearPropertyCaches", 1, 0, "A");
+    QQmlPropertyCache::ConstPtr oldCache = QQmlMetaType::propertyCache(&TestType::staticMetaObject);
+    QVERIFY(oldCache);
+    qmlClearTypeRegistrations();
+    qmlRegisterType<TestType>("ClearPropertyCaches", 1, 0, "B");
+    QQmlPropertyCache::ConstPtr newCache = QQmlMetaType::propertyCache(&TestType::staticMetaObject);
+    QVERIFY(oldCache.data() != newCache.data());
 }
 
 QTEST_MAIN(tst_qqmlmetatype)

@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from positioning.pro.
 
 #####################################################################
@@ -51,7 +54,7 @@ if(ANDROID)
         jar/Qt${QtLocation_VERSION_MAJOR}AndroidPositioning.jar:org.qtproject.qt.android.positioning.QtPositioning # special case
     )
     set_property(TARGET Positioning APPEND PROPERTY QT_ANDROID_LIB_DEPENDENCIES
-        plugins/position/libplugins_position_qtposition_android.so
+        ${INSTALL_PLUGINSDIR}/position/libplugins_position_qtposition_android.so
     )
     set_property(TARGET Positioning APPEND PROPERTY QT_ANDROID_PERMISSIONS
         android.permission.ACCESS_FINE_LOCATION

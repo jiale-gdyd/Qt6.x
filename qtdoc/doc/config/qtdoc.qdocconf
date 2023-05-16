@@ -1,6 +1,6 @@
 include($QT_INSTALL_DOCS/global/qt-module-defaults.qdocconf)
 include($QT_INSTALL_DOCS/global/externalsites.qdocconf)
-
+include($QT_INSTALL_DOCS/config/exampleurl-qtdoc.qdocconf)
 
 project                 = QtDoc
 description             = Qt Reference Documentation
@@ -63,10 +63,11 @@ qhp.QtDoc.subprojects.examples.selectors = fake:example
 qhp.QtDoc.subprojects.examples.sortPages = true
 
 # Add an image used in example manifests to qhp, as well as thumbnails for YouTube links
-{HTML.extraimages,qhp.QtDoc.extraFiles} += \
-    images/qt-codesample.png \
-    images/yIv0vO8B7tQ.jpg \
-    images/5OiIqFTjUZI.jpg
+{HTML.extraimages,DocBook.extraimages,qhp.QtDoc.extraFiles} += images/qt-codesample.png \
+                                                               images/yIv0vO8B7tQ.jpg \
+                                                               images/5OiIqFTjUZI.jpg \
+                                                               images/nmvurCcsWos.jpg \
+                                                               images/xNIz78IPBu0.jpg
 
 # Add an .html file with sidebar content, used in the online style
 HTML.stylesheets             += style/qt5-sidebar.html
@@ -82,10 +83,6 @@ macro.qtbug = "\\l{https://bugreports.qt.io/browse/\1}{\1}"
 manifestmeta.highlighted.names = "QtDoc/Coffee Machine Example" \
                                  "QtDoc/Qt Quick Demo - Same Game" \
                                  "QtDoc/Qt Quick Demo - Calqlatr"
-
-manifestmeta.filters += coffeemachine
-manifestmeta.coffeemachine.names = "QtDoc/Coffee Machine Example"
-manifestmeta.coffeemachine.tags = quick,embedded
 
 # Include 'Qt for Education' pages
 include(../edu/config/qtforeducation.qdocconf)

@@ -23,6 +23,7 @@
 
 #include <QtWidgets/qapplication.h>
 #include <QtGui/qicon.h>
+#include <QtGui/qpalette.h>
 #include <QtGui/qpixmap.h>
 #include <QtWidgets/qlistwidget.h>
 #include <QtWidgets/qtreewidget.h>
@@ -198,14 +199,13 @@ namespace qdesigner_internal
 
         const QChar delimiter = QLatin1Char('|');
         QString rc;
-        const QStringList::const_iterator cend = flagIds.constEnd();
-        for (QStringList::const_iterator it = flagIds.constBegin(); it != cend; ++it) {
+        for (const auto &id : flagIds) {
             if (!rc.isEmpty())
                 rc += delimiter ;
             if (sm == FullyQualified)
-                appendQualifiedName(*it, rc);
+                appendQualifiedName(id, rc);
             else
-                rc += *it;
+                rc += id;
         }
         return rc;
     }
@@ -220,9 +220,9 @@ namespace qdesigner_internal
         }
         uint flags = 0;
         bool valueOk = true;
-        QStringList keys = s.split(QString(QLatin1Char('|')));
-        for (auto it = keys.constBegin(), cend = keys.constEnd(); it != cend; ++it) {
-            const uint flagValue = keyToValue(*it, &valueOk);
+        const QStringList keys = s.split(QString(QLatin1Char('|')));
+        for (const QString &key : keys) {
+            const uint flagValue = keyToValue(key, &valueOk);
             if (!valueOk) {
                 flags = 0;
                 break;
@@ -776,6 +776,22 @@ namespace qdesigner_internal
         if (m_enabled)
             m_widget->setUpdatesEnabled(true);
     }
+
+// from qpalette.cpp
+quint64 paletteResolveMask(QPalette::ColorGroup colorGroup,
+                           QPalette::ColorRole colorRole)
+{
+    const auto offset = quint64(QPalette::NColorRoles) * quint64(colorGroup);
+    const auto bitPos = quint64(colorRole) + offset;
+    return 1ull << bitPos;
+}
+
+quint64 paletteResolveMask(QPalette::ColorRole colorRole)
+{
+    return paletteResolveMask(QPalette::Active, colorRole)
+        | paletteResolveMask(QPalette::Inactive, colorRole)
+        | paletteResolveMask(QPalette::Disabled, colorRole);
+}
 
 } // namespace qdesigner_internal
 

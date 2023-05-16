@@ -15,12 +15,13 @@ Item {
     height: 480
     visible: true
 
-    DynamicsWorld {
+    PhysicsWorld {
         gravity: Qt.vector3d(0, -9.81, 0)
         running: true
-        forceDebugView: true
+        forceDebugDraw: true
         typicalLength: 1
         typicalSpeed: 10
+        scene: viewport.scene
     }
 
     View3D {
@@ -47,7 +48,7 @@ Item {
 
         StaticRigidBody {
             collisionShapes: HeightFieldShape {
-                heightMap: "hf.cooked.hf"
+                source: "qrc:/data/hf.cooked.hf"
                 extents: "8, 2, 4"
             }
             sendContactReports: true
@@ -56,7 +57,7 @@ Item {
         StaticRigidBody {
             position: Qt.vector3d(-6, 0, 0)
             collisionShapes: TriangleMeshShape {
-                meshSource: "tetrahedron.cooked.tri"
+                source: "qrc:/data/tetrahedron.cooked.tri"
             }
             sendContactReports: true
         }
@@ -64,7 +65,7 @@ Item {
         StaticRigidBody {
             position: Qt.vector3d(6, 0, 0)
             collisionShapes: ConvexMeshShape {
-                meshSource: "tetrahedron.cooked.cvx"
+                source: "qrc:/data/tetrahedron.cooked.cvx"
             }
             sendContactReports: true
         }

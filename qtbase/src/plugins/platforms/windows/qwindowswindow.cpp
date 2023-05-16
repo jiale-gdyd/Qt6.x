@@ -1,9 +1,7 @@
 // Copyright (C) 2016 The Qt Company Ltd.
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
-#ifndef WINVER
-#  define WINVER 0x0A00 // Enable touch functions for MinGW
-#endif
+#include <QtCore/qt_windows.h>
 
 #include "qwindowswindow.h"
 #include "qwindowscontext.h"
@@ -854,11 +852,13 @@ static inline bool shouldApplyDarkFrame(const QWindow *w)
     // the application has explicitly opted out of dark frames
     if (!QWindowsIntegration::instance()->darkModeHandling().testFlag(QWindowsApplication::DarkModeWindowFrames))
         return false;
+
     // if the application supports a dark border, and the palette is dark (window background color
     // is darker than the text), then turn dark-border support on, otherwise use a light border.
-    const QPalette defaultPalette;
-    return defaultPalette.color(QPalette::WindowText).lightness()
-         > defaultPalette.color(QPalette::Window).lightness();
+    auto *dWindow = QWindowPrivate::get(const_cast<QWindow*>(w));
+    const QPalette windowPal = dWindow->windowPalette();
+    return windowPal.color(QPalette::WindowText).lightness()
+         > windowPal.color(QPalette::Window).lightness();
 }
 
 QWindowsWindowData
@@ -889,11 +889,12 @@ QWindowsWindowData
                                                                        style, exStyle));
     QWindowsContext::instance()->setWindowCreationContext(context);
 
-    const bool hasFrame = (style & (WS_DLGFRAME | WS_THICKFRAME));
+    const bool hasFrame = (style & (WS_DLGFRAME | WS_THICKFRAME))
+            && !(result.flags & Qt::FramelessWindowHint);
     QMargins invMargins = topLevel && hasFrame && QWindowsGeometryHint::positionIncludesFrame(w)
             ? invisibleMargins(QPoint(context->frameX, context->frameY)) : QMargins();
 
-    qCDebug(lcQpaWindows).nospace()
+    qCDebug(lcQpaWindow).nospace()
         << "CreateWindowEx: " << w << " class=" << windowClassName << " title=" << title
         << '\n' << *this << "\nrequested: " << rect << ": "
         << context->frameWidth << 'x' <<  context->frameHeight
@@ -919,7 +920,7 @@ QWindowsWindowData
                                  pos.x(), pos.y(),
                                  context->frameWidth, context->frameHeight,
                                  parentHandle, nullptr, appinst, nullptr);
-    qCDebug(lcQpaWindows).nospace()
+    qCDebug(lcQpaWindow).nospace()
         << "CreateWindowEx: returns " << w << ' ' << result.hwnd << " obtained geometry: "
         << context->obtainedPos << context->obtainedSize << ' ' << context->margins;
 
@@ -928,8 +929,8 @@ QWindowsWindowData
         return result;
     }
 
-    QWindowsWindow::setDarkBorderToWindow(result.hwnd, QWindowsContext::isDarkMode()
-                                                    && shouldApplyDarkFrame(w));
+    if (QWindowsContext::isDarkMode() && shouldApplyDarkFrame(w))
+        QWindowsWindow::setDarkBorderToWindow(result.hwnd, true);
 
     if (mirrorParentWidth != 0) {
         context->obtainedPos.setX(mirrorParentWidth - context->obtainedSize.width()
@@ -959,7 +960,7 @@ void WindowCreationData::applyWindowFlags(HWND hwnd) const
     const LONG_PTR newExStyle = exStyle;
     if (newExStyle != oldExStyle)
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, newExStyle);
-    qCDebug(lcQpaWindows).nospace() << __FUNCTION__ << hwnd << *this
+    qCDebug(lcQpaWindow).nospace() << __FUNCTION__ << hwnd << *this
         << "\n    Style from " << debugWinStyle(DWORD(oldStyle)) << "\n    to "
         << debugWinStyle(DWORD(newStyle)) << "\n    ExStyle from "
         << debugWinExStyle(DWORD(oldExStyle)) << " to "
@@ -1033,7 +1034,7 @@ QMargins QWindowsGeometryHint::frameOnPrimaryScreen(const QWindow *w, DWORD styl
         qErrnoWarning("%s: AdjustWindowRectEx failed", __FUNCTION__);
     const QMargins result(qAbs(rect.left), qAbs(rect.top),
                           qAbs(rect.right), qAbs(rect.bottom));
-    qCDebug(lcQpaWindows).nospace() << __FUNCTION__ << " style="
+    qCDebug(lcQpaWindow).nospace() << __FUNCTION__ << " style="
         << Qt::showbase << Qt::hex << style << " exStyle=" << exStyle << Qt::dec << Qt::noshowbase
         << ' ' << rect << ' ' << result;
     return result;
@@ -1058,7 +1059,7 @@ QMargins QWindowsGeometryHint::frame(const QWindow *w, DWORD style, DWORD exStyl
     }
     const QMargins result(qAbs(rect.left), qAbs(rect.top),
                           qAbs(rect.right), qAbs(rect.bottom));
-    qCDebug(lcQpaWindows).nospace() << __FUNCTION__ << " style="
+    qCDebug(lcQpaWindow).nospace() << __FUNCTION__ << " style="
         << Qt::showbase << Qt::hex << style << " exStyle=" << exStyle << Qt::dec << Qt::noshowbase
         << " dpi=" << dpi
         << ' ' << rect << ' ' << result;
@@ -1120,7 +1121,7 @@ bool QWindowsGeometryHint::handleCalculateSize(const QMargins &customMargins, co
     ncp->rgrc[0].right -= customMargins.right();
     ncp->rgrc[0].bottom -= customMargins.bottom();
     result = nullptr;
-    qCDebug(lcQpaWindows).nospace() << __FUNCTION__ << oldClientArea << '+' << customMargins << "-->"
+    qCDebug(lcQpaWindow).nospace() << __FUNCTION__ << oldClientArea << '+' << customMargins << "-->"
         << ncp->rgrc[0] << ' ' << ncp->rgrc[1] << ' ' << ncp->rgrc[2]
         << ' ' << ncp->lppos->cx << ',' << ncp->lppos->cy;
     return true;
@@ -1156,7 +1157,7 @@ void QWindowsGeometryHint::applyToMinMaxInfo(const QWindow *w,
     QSize minimumSize;
     QSize maximumSize;
     frameSizeConstraints(w, screen, margins, &minimumSize, &maximumSize);
-    qCDebug(lcQpaWindows).nospace() << '>' << __FUNCTION__ << '<' << " min="
+    qCDebug(lcQpaWindow).nospace() << '>' << __FUNCTION__ << '<' << " min="
         << minimumSize.width() << ',' << minimumSize.height()
         << " max=" << maximumSize.width() << ',' << maximumSize.height()
         << " margins=" << margins
@@ -1171,7 +1172,7 @@ void QWindowsGeometryHint::applyToMinMaxInfo(const QWindow *w,
         mmi->ptMaxTrackSize.x = maximumSize.width();
     if (maximumSize.height() < QWINDOWSIZE_MAX)
         mmi->ptMaxTrackSize.y = maximumSize.height();
-    qCDebug(lcQpaWindows).nospace() << '<' << __FUNCTION__ << " out " << *mmi;
+    qCDebug(lcQpaWindow).nospace() << '<' << __FUNCTION__ << " out " << *mmi;
 }
 
 void QWindowsGeometryHint::applyToMinMaxInfo(const QWindow *w,
@@ -1267,7 +1268,7 @@ void QWindowsBaseWindow::hide_sys() // Normal hide, do not activate other window
 
 void QWindowsBaseWindow::raise_sys()
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window();
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window();
     const Qt::WindowType type = window()->type();
     if (type == Qt::Popup
         || type == Qt::SubWindow // Special case for QTBUG-63121: MDI subwindows with WindowStaysOnTopHint
@@ -1278,14 +1279,14 @@ void QWindowsBaseWindow::raise_sys()
 
 void QWindowsBaseWindow::lower_sys()
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window();
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window();
     if (!(window()->flags() & Qt::WindowStaysOnTopHint))
         SetWindowPos(handle(), HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE);
 }
 
 void QWindowsBaseWindow::setWindowTitle_sys(const QString &title)
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window() << title;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window() << title;
     SetWindowText(handle(), reinterpret_cast<const wchar_t *>(title.utf16()));
 }
 
@@ -1352,7 +1353,7 @@ void QWindowsForeignWindow::setParent(const QPlatformWindow *newParentWindow)
     const HWND newParent = newParentWindow ? reinterpret_cast<HWND>(newParentWindow->winId()) : HWND(nullptr);
     const bool isTopLevel = !newParent;
     const DWORD oldStyle = style();
-    qCDebug(lcQpaWindows) << __FUNCTION__ << window() << "newParent="
+    qCDebug(lcQpaWindow) << __FUNCTION__ << window() << "newParent="
         << newParentWindow << newParent << "oldStyle=" << debugWinStyle(oldStyle);
     SetParent(m_hwnd, newParent);
     if (wasTopLevel != isTopLevel) { // Top level window flags need to be set/cleared manually.
@@ -1370,7 +1371,7 @@ void QWindowsForeignWindow::setParent(const QPlatformWindow *newParentWindow)
 
 void QWindowsForeignWindow::setVisible(bool visible)
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << window() << visible;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << window() << visible;
     if (visible)
         ShowWindow(handle(), SW_SHOWNOACTIVATE);
     else
@@ -1407,13 +1408,16 @@ QWindowCreationContext::QWindowCreationContext(const QWindow *w, const QScreen *
     requestedGeometry(geometry),
     obtainedPos(geometryIn.topLeft()),
     obtainedSize(geometryIn.size()),
-    margins(QWindowsGeometryHint::frame(w, geometry, style, exStyle)),
-    customMargins(cm)
+    margins(QWindowsGeometryHint::frame(w, geometry, style, exStyle))
 {
     // Geometry of toplevels does not consider window frames.
     // TODO: No concept of WA_wasMoved yet that would indicate a
     // CW_USEDEFAULT unless set. For now, assume that 0,0 means 'default'
     // for toplevels.
+
+    if (!(w->flags() & Qt::FramelessWindowHint))
+        customMargins = cm;
+
     if (geometry.isValid()
         || !qt_window_private(const_cast<QWindow *>(w))->resizeAutomatic) {
         frameX = geometry.x();
@@ -1432,7 +1436,7 @@ QWindowCreationContext::QWindowCreationContext(const QWindow *w, const QScreen *
         }
     }
 
-    qCDebug(lcQpaWindows).nospace()
+    qCDebug(lcQpaWindow).nospace()
         << __FUNCTION__ << ' ' << w << ' ' << geometry
         << " pos incl. frame=" << QWindowsGeometryHint::positionIncludesFrame(w)
         << " frame=" << frameWidth << 'x' << frameHeight << '+'
@@ -1568,7 +1572,7 @@ void QWindowsWindow::fireFullExpose(bool force)
 
 void QWindowsWindow::destroyWindow()
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window() << m_data.hwnd;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window() << m_data.hwnd;
     if (m_data.hwnd) { // Stop event dispatching before Window is destroyed.
         setFlag(WithinDestroy);
         // Clear any transient child relationships as Windows will otherwise destroy them (QTBUG-35499, QTBUG-36666)
@@ -1717,7 +1721,7 @@ QWindowsWindowData
 void QWindowsWindow::setVisible(bool visible)
 {
     const QWindow *win = window();
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << win << m_data.hwnd << visible;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << win << m_data.hwnd << visible;
     if (m_data.hwnd) {
         if (visible) {
             show_sys();
@@ -1897,7 +1901,7 @@ void QWindowsWindow::show_sys() const
 
 void QWindowsWindow::setParent(const QPlatformWindow *newParent)
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << window() << newParent;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << window() << newParent;
 
     if (m_data.hwnd)
         setParent_sys(newParent);
@@ -1968,7 +1972,15 @@ void QWindowsWindow::handleDpiScaledSize(WPARAM wParam, LPARAM lParam, LRESULT *
     const qreal scale = QHighDpiScaling::roundScaleFactor(qreal(dpi) / QWindowsScreen::baseDpi) /
                         QHighDpiScaling::roundScaleFactor(qreal(savedDpi()) / QWindowsScreen::baseDpi);
     const QMargins margins = QWindowsGeometryHint::frame(window(), style(), exStyle(), dpi);
-    const QSize windowSize = (geometry().size() * scale).grownBy(margins);
+    if (!(m_data.flags & Qt::FramelessWindowHint)) {
+        // We need to update the custom margins to match the current DPI, because
+        // we don't want our users manually hook into this message just to set a
+        // new margin, but here we can't call setCustomMargins() directly, that
+        // function will change the window geometry which conflicts with what we
+        // are currently doing.
+        m_data.customMargins *= scale;
+    }
+    const QSize windowSize = (geometry().size() * scale).grownBy(margins + customMargins());
     SIZE *size = reinterpret_cast<SIZE *>(lParam);
     size->cx = windowSize.width();
     size->cy = windowSize.height();
@@ -2118,7 +2130,7 @@ void QWindowsWindow::setGeometry(const QRect &rectIn)
         if (m_data.geometry != rect && (isVisible() || QLibraryInfo::isDebugBuild())) {
             const auto warning =
                 msgUnableToSetGeometry(this, rectIn, m_data.geometry,
-                                       m_data.fullFrameMargins, m_data.customMargins);
+                                       fullFrameMargins(), customMargins());
             qWarning("%s: %s", __FUNCTION__, qPrintable(warning));
         }
     } else {
@@ -2186,7 +2198,7 @@ void QWindowsWindow::checkForScreenChanged(ScreenChangeMode mode)
         && !equalDpi(currentScreen->logicalDpi(), newScreen->logicalDpi())) {
         return;
     }
-    qCDebug(lcQpaWindows).noquote().nospace() << __FUNCTION__
+    qCDebug(lcQpaWindow).noquote().nospace() << __FUNCTION__
         << ' ' << window() << " \"" << (currentScreen ? currentScreen->name() : QString())
         << "\"->\"" << newScreen->name() << '"';
     updateFullFrameMargins();
@@ -2224,7 +2236,7 @@ void QWindowsBaseWindow::setGeometry_sys(const QRect &rect) const
     const QMargins margins = fullFrameMargins();
     const QRect frameGeometry = rect + margins;
 
-    qCDebug(lcQpaWindows) << '>' << __FUNCTION__ << window()
+    qCDebug(lcQpaWindow) << '>' << __FUNCTION__ << window()
         << "\n from " << geometry_sys() << " frame: "
         << margins << " to " <<rect
         << " new frame: " << frameGeometry;
@@ -2255,7 +2267,7 @@ void QWindowsBaseWindow::setGeometry_sys(const QRect &rect) const
         result = MoveWindow(hwnd, x, frameGeometry.y(),
                             frameGeometry.width(), frameGeometry.height(), true);
     }
-    qCDebug(lcQpaWindows) << '<' << __FUNCTION__ << window()
+    qCDebug(lcQpaWindow) << '<' << __FUNCTION__ << window()
         << "\n resulting " << result << geometry_sys();
 }
 
@@ -2305,9 +2317,10 @@ bool QWindowsWindow::handleWmPaint(HWND hwnd, UINT message,
                                    WPARAM wParam, LPARAM, LRESULT *result)
 {
     if (message == WM_ERASEBKGND) { // Backing store - ignored.
-        if (!m_firstBgDraw && QWindowsIntegration::instance()->darkModeHandling().testFlag(QWindowsApplication::DarkModeStyle)) {
-            // Get system background color
-            const QColor bgColor = QGuiApplicationPrivate::platformTheme()->palette()->color(QPalette::Window);
+        if (!m_firstBgDraw) {
+            // Get window background from the default palette; this will
+            // usually be the system background color.
+            const QColor bgColor = QGuiApplication::palette().color(QPalette::Window);
             HBRUSH bgBrush = CreateSolidBrush(RGB(bgColor.red(), bgColor.green(), bgColor.blue()));
             // Fill rectangle with system background color
             RECT rc;
@@ -2354,7 +2367,7 @@ void QWindowsWindow::setWindowTitle(const QString &title)
 
 void QWindowsWindow::setWindowFlags(Qt::WindowFlags flags)
 {
-    qCDebug(lcQpaWindows) << '>' << __FUNCTION__ << this << window() << "\n    from: "
+    qCDebug(lcQpaWindow) << '>' << __FUNCTION__ << this << window() << "\n    from: "
         << m_data.flags << "\n    to: " << flags;
     const QRect oldGeometry = geometry();
     if (m_data.flags != flags) {
@@ -2372,7 +2385,7 @@ void QWindowsWindow::setWindowFlags(Qt::WindowFlags flags)
     if (oldGeometry != newGeometry)
         handleGeometryChange();
 
-    qCDebug(lcQpaWindows) << '<' << __FUNCTION__ << "\n    returns: "
+    qCDebug(lcQpaWindow) << '<' << __FUNCTION__ << "\n    returns: "
         << m_data.flags << " geometry " << oldGeometry << "->" << newGeometry;
 }
 
@@ -2387,13 +2400,14 @@ QWindowsWindowData QWindowsWindow::setWindowFlags_sys(Qt::WindowFlags wt,
     QWindowsWindowData result = m_data;
     result.flags = creationData.flags;
     result.embedded = creationData.embedded;
-    result.hasFrame = (creationData.style & (WS_DLGFRAME | WS_THICKFRAME));
+    result.hasFrame = (creationData.style & (WS_DLGFRAME | WS_THICKFRAME))
+            && !(creationData.flags & Qt::FramelessWindowHint);
     return result;
 }
 
 void QWindowsWindow::handleWindowStateChange(Qt::WindowStates state)
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window()
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window()
                  << "\n    from " << m_windowState << " to " << state;
     m_windowState = state;
     QWindowSystemInterface::handleWindowStateChanged(window(), state);
@@ -2460,7 +2474,7 @@ void QWindowsWindow::setWindowState_sys(Qt::WindowStates newState)
     const Qt::WindowStates oldState = m_windowState;
     if (oldState == newState)
         return;
-    qCDebug(lcQpaWindows) << '>' << __FUNCTION__ << this << window()
+    qCDebug(lcQpaWindow) << '>' << __FUNCTION__ << this << window()
         << " from " << oldState << " to " << newState;
 
     const bool visible = isVisible();
@@ -2586,12 +2600,12 @@ void QWindowsWindow::setWindowState_sys(Qt::WindowStates newState)
                 setRestoreMaximizedFlag(m_data.hwnd, newState & Qt::WindowMaximized);
         }
     }
-    qCDebug(lcQpaWindows) << '<' << __FUNCTION__ << this << window() << newState;
+    qCDebug(lcQpaWindow) << '<' << __FUNCTION__ << this << window() << newState;
 }
 
 void QWindowsWindow::setStyle(unsigned s) const
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window() << debugWinStyle(s);
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window() << debugWinStyle(s);
     setFlag(WithinSetStyle);
     SetWindowLongPtr(m_data.hwnd, GWL_STYLE, s);
     clearFlag(WithinSetStyle);
@@ -2599,7 +2613,7 @@ void QWindowsWindow::setStyle(unsigned s) const
 
 void QWindowsWindow::setExStyle(unsigned s) const
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window() << debugWinExStyle(s);
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window() << debugWinExStyle(s);
     SetWindowLongPtr(m_data.hwnd, GWL_EXSTYLE, s);
 }
 
@@ -2628,7 +2642,7 @@ bool QWindowsWindow::windowEvent(QEvent *event)
 
 void QWindowsWindow::propagateSizeHints()
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window();
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window();
 }
 
 bool QWindowsWindow::handleGeometryChangingMessage(MSG *message, const QWindow *qWindow, const QMargins &margins)
@@ -2677,8 +2691,10 @@ bool QWindowsWindow::handleGeometryChanging(MSG *message) const
 
 void QWindowsWindow::setFullFrameMargins(const QMargins &newMargins)
 {
+    if (m_data.flags & Qt::FramelessWindowHint)
+        return;
     if (m_data.fullFrameMargins != newMargins) {
-        qCDebug(lcQpaWindows) << __FUNCTION__ << window() <<  m_data.fullFrameMargins  << "->" << newMargins;
+        qCDebug(lcQpaWindow) << __FUNCTION__ << window() <<  m_data.fullFrameMargins  << "->" << newMargins;
         m_data.fullFrameMargins = newMargins;
     }
 }
@@ -2694,12 +2710,14 @@ void QWindowsWindow::updateFullFrameMargins()
 
 void QWindowsWindow::calculateFullFrameMargins()
 {
+    if (m_data.flags & Qt::FramelessWindowHint)
+        return;
     // Normally obtained from WM_NCCALCSIZE. This calculation only works
     // when no native menu is present.
     const auto systemMargins = testFlag(DisableNonClientScaling)
         ? QWindowsGeometryHint::frameOnPrimaryScreen(window(), m_data.hwnd)
         : frameMargins_sys();
-    setFullFrameMargins(systemMargins + m_data.customMargins);
+    setFullFrameMargins(systemMargins + customMargins());
 }
 
 QMargins QWindowsWindow::frameMargins() const
@@ -2712,12 +2730,14 @@ QMargins QWindowsWindow::frameMargins() const
 
 QMargins QWindowsWindow::fullFrameMargins() const
 {
+    if (m_data.flags & Qt::FramelessWindowHint)
+        return {};
     return m_data.fullFrameMargins;
 }
 
 void QWindowsWindow::setOpacity(qreal level)
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << level;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << level;
     if (!qFuzzyCompare(m_opacity, level)) {
         m_opacity = level;
         if (m_data.hwnd)
@@ -2777,7 +2797,7 @@ void QWindowsWindow::setMask(const QRegion &region)
 
 void QWindowsWindow::requestActivateWindow()
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window();
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window();
     // 'Active' state handling is based in focus since it needs to work for
     // child windows as well.
     if (m_data.hwnd) {
@@ -2820,7 +2840,7 @@ bool QWindowsWindow::setKeyboardGrabEnabled(bool grab)
         qWarning("%s: No handle", __FUNCTION__);
         return false;
     }
-    qCDebug(lcQpaWindows) << __FUNCTION__ << this << window() << grab;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << this << window() << grab;
 
     QWindowsContext *context = QWindowsContext::instance();
     if (grab) {
@@ -2834,7 +2854,7 @@ bool QWindowsWindow::setKeyboardGrabEnabled(bool grab)
 
 bool QWindowsWindow::setMouseGrabEnabled(bool grab)
 {
-    qCDebug(lcQpaWindows) << __FUNCTION__ << window() << grab;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << window() << grab;
     if (!m_data.hwnd) {
         qWarning("%s: No handle", __FUNCTION__);
         return false;
@@ -2939,7 +2959,7 @@ void QWindowsWindow::getSizeHints(MINMAXINFO *mmi) const
         }
     }
 
-    qCDebug(lcQpaWindows) << __FUNCTION__ << window() << *mmi;
+    qCDebug(lcQpaWindow) << __FUNCTION__ << window() << *mmi;
 }
 
 bool QWindowsWindow::handleNonClientHitTest(const QPoint &globalPos, LRESULT *result) const
@@ -3051,7 +3071,7 @@ void QWindowsWindow::setCursor(const CursorHandlePtr &c)
     }
     if (changed) {
         const bool apply = applyNewCursor(window());
-        qCDebug(lcQpaWindows) << window() << __FUNCTION__
+        qCDebug(lcQpaWindow) << window() << __FUNCTION__
             << c->handle() << " doApply=" << apply;
         m_cursor = c;
         if (apply)
@@ -3163,7 +3183,7 @@ static bool queryDarkBorder(HWND hwnd)
         SUCCEEDED(DwmGetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, &result, sizeof(result)))
         || SUCCEEDED(DwmGetWindowAttribute(hwnd, DwmwaUseImmersiveDarkModeBefore20h1, &result, sizeof(result)));
     if (!ok)
-        qWarning("%s: Unable to retrieve dark window border setting.", __FUNCTION__);
+        qCWarning(lcQpaWindow, "%s: Unable to retrieve dark window border setting.", __FUNCTION__);
     return result == TRUE;
 }
 
@@ -3174,7 +3194,7 @@ bool QWindowsWindow::setDarkBorderToWindow(HWND hwnd, bool d)
         SUCCEEDED(DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, &darkBorder, sizeof(darkBorder)))
         || SUCCEEDED(DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkModeBefore20h1, &darkBorder, sizeof(darkBorder)));
     if (!ok)
-        qWarning("%s: Unable to set dark window border.", __FUNCTION__);
+        qCWarning(lcQpaWindow, "%s: Unable to set %s window border.", __FUNCTION__, d ? "dark" : "light");
     return ok;
 }
 
@@ -3198,6 +3218,13 @@ void QWindowsWindow::setMenuBar(QWindowsMenuBar *mb)
     m_menuBar = mb;
 }
 
+QMargins QWindowsWindow::customMargins() const
+{
+    if (m_data.flags & Qt::FramelessWindowHint)
+        return {};
+    return m_data.customMargins;
+}
+
 /*!
     \brief Sets custom margins to be added to the default margins determined by
     the windows style in the handling of the WM_NCCALCSIZE message.
@@ -3210,6 +3237,10 @@ void QWindowsWindow::setMenuBar(QWindowsMenuBar *mb)
 
 void QWindowsWindow::setCustomMargins(const QMargins &newCustomMargins)
 {
+    if (m_data.flags & Qt::FramelessWindowHint) {
+        qCWarning(lcQpaWindow) << "You should not set custom margins for a frameless window.";
+        return;
+    }
     if (newCustomMargins != m_data.customMargins) {
         const QMargins oldCustomMargins = m_data.customMargins;
         m_data.customMargins = newCustomMargins;
@@ -3218,7 +3249,7 @@ void QWindowsWindow::setCustomMargins(const QMargins &newCustomMargins)
         const QPoint topLeft = currentFrameGeometry.topLeft();
         QRect newFrame = currentFrameGeometry.marginsRemoved(oldCustomMargins) + m_data.customMargins;
         newFrame.moveTo(topLeft);
-        qCDebug(lcQpaWindows) << __FUNCTION__ << oldCustomMargins << "->" << newCustomMargins
+        qCDebug(lcQpaWindow) << __FUNCTION__ << oldCustomMargins << "->" << newCustomMargins
             << currentFrameGeometry << "->" << newFrame;
         SetWindowPos(m_data.hwnd, nullptr, newFrame.x(), newFrame.y(), newFrame.width(), newFrame.height(), SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE);
     }

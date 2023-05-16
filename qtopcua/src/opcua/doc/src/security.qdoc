@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GFDL-1.3-no-invariants-only
 
 /*!
-    \page security.html
+    \page qtopcua-security.html
     \title Creating OPC UA Clients with security support
     \brief Instructions how to create OPC UA Clients with security support
 
@@ -129,7 +129,14 @@ Certificate:
         \li Configure the correct Application Identity
           \snippet ../../examples/opcua/opcuaviewer/mainwindow.cpp Application Identity
         \li Configure PKI locations so that the SDK can find the certificate, private key, trust list etc.
+
+          See for instance the code from the \l{Qt OPC UA Viewer Example}:
           \snippet ../../examples/opcua/opcuaviewer/mainwindow.cpp PKI Configuration
+
+          In the example, we extract pre-configured own and trusted certificates
+          from the Qt resource system to a writable location in the file system.
+          The remaining directories for issuer (revocation) lists are created
+          manually.
     \endlist
 
     \section2 PKI Folder Layout

@@ -46,7 +46,7 @@ Check this with the following command:
 
 Each minor version of Qt targets a specific Emcsripten version, which remains unchanged
 in patch releases. Qt's binary packages are built using the target Emscripten version.
-Applications should use the same version since Emscripten does not guarantee 
+Applications should use the same version since Emscripten does not guarantee
 \l{https://github.com/emscripten-core/emscripten/blob/main/ChangeLog.md}{ABI compatibility}
 between versions.
 
@@ -55,13 +55,14 @@ The Emcsripten versions are:
    \li Qt 6.2: 2.0.14
    \li Qt 6.3: 3.0.0
    \li Qt 6.4: 3.1.14
+   \li Qt 6.5: 3.1.25
 \endlist
 
 Use \c emsdk to install specific \c Emscripten versions. For example, to install
-it for Qt 6.4 enter:
+it for Qt 6.5 enter:
 \list
-    \li ./emsdk install 3.1.14
-    \li ./emsdk activate 3.1.14
+    \li ./emsdk install 3.1.25
+    \li ./emsdk activate 3.1.25
 \endlist
 
 On Windows, Emscripten is in your path after installation. On macOS or Linux
@@ -86,8 +87,9 @@ expected to work but may introduce behavior changes which require making changes
 Download Qt from the Downloads section of your Qt account. We provide builds
 for Linux, macOS, and Windows as development platforms.
 
-The binary builds are designed to run on as many browsers as possible,
-and do not enable features such as threads or SIMD support.
+The binary builds are designed to run on as many browsers as possible, and come
+in single-threaded and multi-threaded versions. Non-standard features such as wasm
+SIMD and wasm exceptions are not supported by the binary builds.
 
 \target wasm-building-qt-from-source
 \section2 Building Qt from Source
@@ -113,6 +115,8 @@ variable \e{CMAKE_TOOLCHAIN_FILE} or by passing
 \badcode
     ./configure -qt-host-path /path/to/Qt -platform wasm-emscripten -prefix $PWD/qtbase
 \endcode
+
+\include use-ninja-note.qdocinc ninja-note
 
 On Windows, make sure you have MinGW in your \c PATH
 and configure with the following:
@@ -320,8 +324,8 @@ Qt detects WebGL as OpenGL ES, with the following version mapping:
         \li WebGL 2
 \endtable
 
-OpengL ES 2 is selected by default, OpenGL ES 3 can be enabled by configuring Qt with
-the \c {-feature-opengles3} option.
+OpenGL ES 2 and OpenGL ES 3 are enabled by default, and can be selected through
+the QSurfaceFormat::setMajorVersion() function.
 
 Web and Desktop OpenGL differences are documented in
 \l {https://www.khronos.org/registry/webgl/specs/latest/1.0/#6}
@@ -344,23 +348,45 @@ and/or full ES3 emulation by adding
 target_link_options(<your target> PRIVATE "SHELL:-s FULL_ES3=1")
 \endcode
 
-to your project's \c {CMakeFiles.txt}.
+to your project's \c {CMakeLists.txt}.
 
 \section2 Multithreading
 
-Qt supports multithreading on WebAssembly, however this feature is experimental
-and is not enabled by default. Thread support can be enabled by building Qt from
-source and using the "-feature-thread" configure flag.
+Qt for WebAssembly supports multithreading using Emscripten's \l{https://emscripten.org/docs/porting/pthreads.html}
+{Pthreads support}, where each thread is backed by a \l{https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API}{web worker}.
+Enable multithreading by installing the "WebAssembly (multi-threaded)" component from the Qt Maintenance Tool,
+or by building Qt from source and passing the "-feature-thread flag to configure.
 
-The Qt for WebAssembly binary packages do not support multithreading.
+Existing threading code can generally be reused, but may need to be modified to work around
+\l{https://emscripten.org/docs/porting/pthreads.html#special-considerations}{spesifics} of the
+pthread implementation. Some Emscripten and Qt features are not supported, this includes
+the \l {https://emscripten.org/docs/porting/pthreads.html#proxying}{thread proxying} feature and
+the Qt Quick threaded render loop.
 
-Emscripten implements support for pthreads using web workers, and this abstraction
-is not completely leak free. See \l {https://emscripten.org/docs/porting/pthreads.html}{Pthreads Support}
-for further info.
+Be aware that it is especially important to \l{https://emscripten.org/docs/porting/pthreads.html#blocking-on-the-main-browser-thread}
+{not block the main thread} on Qt for WebAssembly, since the main thread might be required to service
+requests from secondary threads. For example, all timers in Qt are scheduled on the main thread, and
+will not fire if the main thread is blocked. Another example is that creating a new web worker (for
+a thread) can only be done from the main thread.
 
-Multithreading requires browser support for SharedArrayBuffer, see \l {https://caniuse.com/sharedarraybuffer}
-{ caniuse sharedarraybuffer } for current supported status. If supported, SharedArrayBuffer will
-be enabled provided the web server sets the COOP and and COEP headers:
+Emscripten provides some mitigations for this. Short-term waits such as acquiring a mutex lock is
+supported by busy-waiting and processing events while waiting for the lock. Longer waits on the main
+thread should be avoided. In particular, the common practice of calling QThread::wait()
+or pthread_join() to wait for a secondary thread will not work, unless the application can guarantee
+that the thread (and web worker) has already been started, and will be able to complete without assistance
+from the main thread at the time that the wait() or join() call is made.
+
+The multithreading feature requires browser support for the \l{https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer}
+{SharedArrayBuffer} API. (Normally, Emscripten stores the heap in an ArrayBuffer object. For
+multithreading, the heap must be shared with web workers and a SharedArrayBuffer is needed) This API
+is generally available in all modern browsers, but may be disabled if certain security requirements
+are not met. WebAssembly binaries with thread support enabled will then fail to run, also if the
+binary does not actually start a thread.
+
+Enabling SharedArrayBuffer requires a secure browsing context (where the page is served over https://
+or http://localhost), and that the page is in cross-origin isolated mode. The latter can be done by
+setting the so called COOP and COEP headers on the web server:
+
 \list
 \li Cross-Origin-Opener-Policy: same-origin
 \li Cross-Origin-Embedder-Policy: require-corp
@@ -368,18 +394,21 @@ be enabled provided the web server sets the COOP and and COEP headers:
 
 \section2 SIMD
 
-The LLVM compiler supports generating \l{https://emscripten.org/docs/porting/simd.html}{WebAssembly SIMD}.
-Pass the -msimd128 flag at compile time to enable. This enables LLVM auto-vectorization, which
-makes it possible to benefit from SIMD without making source code modifications.
+Emscripten supports \l{https://emscripten.org/docs/porting/simd.html}{WebAssembly SIMD}, which
+provides 128-bit SIMD types and operations for WebAssembly.
+
+Build Qt from source and configure with the -feature-wasm-simd128 flag to enable; this will pass the
+-msimd128 flag at compile and link time. Note that Qt does not contain wasm-simd optimized
+code paths at this point, however enabling wasm-simd will enable compiler auto-vectorization
+where the compiler can use the SIMD instructions.
 
 You can target WebAssembly SIMD directly using either GCC/Clang SIMD Vector Extensions or WASM
 SIMD128 intrinsics. For more information, see the Emscripten
 \l{https://emscripten.org/docs/porting/simd.html}{ SIMD documentation }.
 
 In addition, Emscripten supports emulating/translating x86 SSE instructions to Wasm SIMD instructions.
-Enable by building Qt from source and configure with the "-sse2" option. This adds support for SSE1,
-SSE2, SSE3, SSSE3, SSE4.1, SSE4.2, and 128-bit AVX instructions, and enables Qt's SSE code paths.
-Use of SSE SIMD instructions that have no native Wasm SIMD equivalent may cause reduced performance.
+Qt does not use this emulation, as the use of SSE SIMD instructions that have no native Wasm SIMD
+equivalent may cause reduced performance.
 
 Note that SIMD-enabled binaries are incompatible with browsers that do not support WebAssembly SIMD,
 also if the SIMD code paths are not called at run-time. SIMD support may need to be enabled
@@ -472,6 +501,7 @@ which can either fetch a font by URL or using
 
 The other way to use font is to add it via
 \l{https://doc.qt.io/qt-6/qfontdatabase.html#addApplicationFontFromData}{QFontDatabase::addApplicationFontFromData}.
+
 
 \section2 Application Startup and the Event Loop
 
@@ -568,6 +598,9 @@ the --device-option QT_WASM_SOURCE_MAP=1, and building a debug build.
     \li \l {https://developer.mozilla.org/en-US/docs/Tools/Debugger/How_to/Use_a_source_map}
     \li \l {https://developers.google.com/web/tools/chrome-devtools/javascript/source-maps#source_maps_in_devtools_sources_panel}
 \endlist
+\li Debug symbols via DWARF are also enabled if the program is linked with the -g flag (tested with Chrome)
+    \li This will require this extension: \l {https://goo.gle/wasm-debugging-extension}
+    \li See also \l {https://developer.chrome.com/blog/wasm-debugging-2020/}
 \li Mobile browsers can use remote debugging
 \list
     \li \l {https://developer.mozilla.org/en-US/docs/Tools/Remote_Debugging}
@@ -600,17 +633,18 @@ Using qmake:
     QMAKE_LFLAGS_DEBUG += -s LIBRARY_DEBUG=1
 \endcode
 
-\section2 Asyncify
+\section2 Wasm Exceptions
 
-Asyncify is an Emscripten feature which enables synchronous C++ code to interact with asynchronous JavaScript.
+Qt is built without exception support by default, where throwing an exception will abort
+the program. \l{https://emscripten.org/docs/porting/exceptions.html#webassembly-exception-handling-based-support}
+{WebAssembly exceptions} can be enabled by building from source and passing the -feature-wasm-exceptions
+flag to Qt configure. This will pass the -fwasm-exceptions flag to the compiler at compile and
+link time. Qt does not support enabling Emscripten's support for the earlier JavaScript-based
+exception implementation.
 
-Qt uses it to allow calling blocking APIs like one level of nested QEventLoop::exec() and returning normally.
-
-Asyncify's unwinding and rewinding the stack add overhead to executable size as well as performance.
-To enable asyncify, configure Qt using:
-\code
-     -device-option QT_EMSCRIPTEN_ASYNCIFY=1
-\endcode
+Note that calling QApplication::exec() is not supported when exceptions are enabled, due to
+internal implementation details. Instead, write main() in the form where it returns early and
+does not call exec(), as described in \l{Application Startup and the Event Loop}.
 
 \section2 Known Issues
 
@@ -631,9 +665,13 @@ be seen on HighDPi displays.
 is not providing that capability
 \li Link time error such as "wasm-ld: error: initial memory too small", requires adjustment of the
  initial memory size. Use QT_WASM_INITIAL_MEMORY to set the initial size in kb, which must be a
- multiple of 64KB (65536). Default is 50 MB. In CMakeFiles.txt: set(QT_WASM_INITIAL_MEMORY, "50MB");
+ multiple of 64KB (65536). Default is 50 MB. In CMakeLists.txt:
+ set_target_properties(<target> PROPERTIES QT_WASM_INITIAL_MEMORY "150MB")
 \li add_executable in CMakeLists.txt does not produce <target>.html or copy qtloader.js. Use
  qt_add_executable instead.
+\li QWebSocket connections are supported by Emscripten only on the main thread.
+\li QWebSockets for WebAssembly does not support sending ping or pong frames, as the API available to
+web pages and browsers does not expose this functionality.
 
 \endlist
 
@@ -647,14 +685,14 @@ The following configure options are relevant when building Qt for WebAssembly fr
         \li Configure Argument
         \li Brief Description
     \row
-        \li -sse2
-        \li Enables SIMD support.
-    \row
         \li -feature-thread
         \li Multi-threaded wasm
     \row
-        \li -device-option QT_WASM_SOURCE_MAP=1
-        \li Debugging option for creating source maps
+        \li -feature-wasm-simd128
+        \li Enables WebAssembly SIMD support.
+    \row
+        \li -feature-wasm-exceptions
+        \li Enables WebAssembly exceptions support.
     \row
         \li -feature-opengles3
         \li Use opengles3 in addition to the default opengles2

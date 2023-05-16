@@ -17,13 +17,12 @@ QT_BEGIN_NAMESPACE
 
 class QRegularExpression;
 class QString;
-class QTcpSocket;
 
 class QHttpServerRequestPrivate;
 class QHttpServerRequest final
 {
-    friend class QAbstractHttpServerPrivate;
     friend class QHttpServerResponse;
+    friend class QHttpServerStream;
 
     Q_GADGET_EXPORT(Q_HTTPSERVER_EXPORT)
 
@@ -56,6 +55,9 @@ public:
     Q_HTTPSERVER_EXPORT QList<QPair<QByteArray, QByteArray>> headers() const;
     Q_HTTPSERVER_EXPORT QByteArray body() const;
     Q_HTTPSERVER_EXPORT QHostAddress remoteAddress() const;
+    Q_HTTPSERVER_EXPORT quint16 remotePort() const;
+    Q_HTTPSERVER_EXPORT QHostAddress localAddress() const;
+    Q_HTTPSERVER_EXPORT quint16 localPort() const;
 
 private:
     Q_DISABLE_COPY(QHttpServerRequest)
@@ -64,7 +66,10 @@ private:
     friend Q_HTTPSERVER_EXPORT QDebug operator<<(QDebug debug, const QHttpServerRequest &request);
 #endif
 
-    Q_HTTPSERVER_EXPORT explicit QHttpServerRequest(const QHostAddress &remoteAddress);
+    Q_HTTPSERVER_EXPORT explicit QHttpServerRequest(const QHostAddress &remoteAddress,
+                                                    quint16 remotePort,
+                                                    const QHostAddress &localAddress,
+                                                    quint16 localPort);
 
     std::unique_ptr<QHttpServerRequestPrivate> d;
 };

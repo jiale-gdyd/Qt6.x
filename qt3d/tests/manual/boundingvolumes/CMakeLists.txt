@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from boundingvolumes.pro.
 
 #####################################################################
@@ -8,7 +11,7 @@ qt_internal_add_manual_test(boundingvolumes
     GUI
     SOURCES
         main.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::3DInput
         Qt::Gui
         Qt::Qml

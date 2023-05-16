@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 #####################################################################
 ## proxy_multiprocess_server Binary:
@@ -13,13 +16,10 @@ qt_internal_add_executable(proxy_multiprocess_server
         mytestserver.cpp mytestserver.h
     INCLUDE_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::RemoteObjects
         Qt::Test
 )
 qt6_add_repc_sources(proxy_multiprocess_server
     ../subclass.rep
 )
-
-#### Keys ignored in scope 1:.:.:server.pro:<TRUE>:
-# TEMPLATE = "app"

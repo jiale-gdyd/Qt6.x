@@ -23,7 +23,8 @@ QT_BEGIN_NAMESPACE
 class QHttpServerRequestPrivate
 {
 public:
-    QHttpServerRequestPrivate(const QHostAddress &remoteAddress);
+    QHttpServerRequestPrivate(const QHostAddress &remoteAddress, quint16 remotePort,
+                              const QHostAddress &localAddress, quint16 localPort);
 
     quint16 port = 0;
 
@@ -31,6 +32,7 @@ public:
         NothingDone,
         ReadingRequestLine,
         ReadingHeader,
+        ExpectContinue,
         ReadingData,
         AllDone,
     } state = State::NothingDone;
@@ -42,6 +44,7 @@ public:
     bool parseRequestLine(QByteArrayView line);
     qsizetype readRequestLine(QAbstractSocket *socket);
     qsizetype readHeader(QAbstractSocket *socket);
+    qsizetype sendContinue(QAbstractSocket *socket);
     qsizetype readBodyFast(QAbstractSocket *socket);
     qsizetype readRequestBodyRaw(QAbstractSocket *socket, qsizetype size);
     qsizetype readRequestBodyChunked(QAbstractSocket *socket);
@@ -56,6 +59,9 @@ public:
     { return parser.combinedHeaderValue(name); }
 
     QHostAddress remoteAddress;
+    quint16 remotePort;
+    QHostAddress localAddress;
+    quint16 localPort;
     bool handling{false};
     qsizetype bodyLength;
     qsizetype contentRead;

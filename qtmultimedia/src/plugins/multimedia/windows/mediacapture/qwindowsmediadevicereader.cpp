@@ -22,7 +22,7 @@ QWindowsMediaDeviceReader::QWindowsMediaDeviceReader(QObject *parent)
     : QObject(parent)
 {
     m_durationTimer.setInterval(100);
-    connect(&m_durationTimer, SIGNAL(timeout()), this, SLOT(updateDuration()));
+    connect(&m_durationTimer, &QTimer::timeout, this, &QWindowsMediaDeviceReader::updateDuration);
 }
 
 QWindowsMediaDeviceReader::~QWindowsMediaDeviceReader()
@@ -1012,3 +1012,5 @@ STDMETHODIMP QWindowsMediaDeviceReader::OnMarker(DWORD, LPVOID)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qwindowsmediadevicereader_p.cpp"

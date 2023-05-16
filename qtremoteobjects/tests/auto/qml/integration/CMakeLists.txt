@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 #####################################################################
 ## tst_qmlintegration Test:
@@ -14,11 +17,7 @@ qt_internal_add_test(tst_qmlintegration
     QMLTEST
     SOURCES
         tst_integration.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Gui
     TESTDATA ${test_data}
 )
-
-#### Keys ignored in scope 1:.:.:integration.pro:<TRUE>:
-# OTHER_FILES = "$$PWD/data/*.qml"
-# TEMPLATE = "app"

@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 #####################################################################
 ## RemoteObjects Module:
@@ -41,11 +44,6 @@ qt_internal_add_module(RemoteObjects
         Qt::CorePrivate
     GENERATE_CPP_EXPORTS
 )
-
-#### Keys ignored in scope 1:.:.:remoteobjects.pro:<TRUE>:
-# MODULE = "remoteobjects"
-# MODULE_CONFIG = "remoteobjects_repc"
-# OTHER_FILES = "doc/qtremoteobjects.qdocconf" "doc/src/remoteobjects-cpp.qdoc" "doc/src/remoteobjects-index.qdoc" "doc/src/remoteobjects-overview.qdoc" "doc/src/remoteobjects-repc.qdoc"
 
 ## Scopes:
 #####################################################################

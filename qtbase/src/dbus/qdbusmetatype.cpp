@@ -48,7 +48,7 @@ public:
 
 void QDBusMetaTypeId::init()
 {
-    static QBasicAtomicInt initialized = Q_BASIC_ATOMIC_INITIALIZER(false);
+    Q_CONSTINIT static QBasicAtomicInt initialized = Q_BASIC_ATOMIC_INITIALIZER(false);
 
     // reentrancy is not a problem since everything else is locked on their own
     // set the guard variable at the end
@@ -78,6 +78,7 @@ void QDBusMetaTypeId::init()
         qDBusRegisterMetaType<QVariantList>();
         qDBusRegisterMetaType<QVariantMap>();
         qDBusRegisterMetaType<QVariantHash>();
+        qDBusRegisterMetaType<QDBusObjectPath>();
 
         qDBusRegisterMetaType<QList<bool> >();
         qDBusRegisterMetaType<QList<short> >();

@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #generic
 set(CMAKE_SYSTEM_NAME Integrity)
 set(CMAKE_SYSTEM_PROCESSOR arm)

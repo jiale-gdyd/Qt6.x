@@ -14,8 +14,9 @@
 #include <QtQuick3DRuntimeRender/private/qssgperframeallocator_p.h>
 #include <QtQuick3DRuntimeRender/private/qssgrenderer_p.h>
 #include <QtQuick3DRuntimeRender/private/qssgrendererutil_p.h>
+#include <QtQuick3DRuntimeRender/private/qssgdebugdrawsystem_p.h>
 
-#include <QtQuick/QQuickWindow>
+#include <QtQuick/private/qquickwindow_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -88,6 +89,7 @@ QSSGRenderContextInterface::QSSGRenderContextInterface(QQuickWindow *window,
     , m_shaderLibraryManager(q3ds_shaderLibraryManager())
     , m_customMaterialSystem(new QSSGCustomMaterialSystem)
     , m_shaderProgramGenerator(new QSSGProgramGenerator)
+    , m_debugDrawSystem(new QSSGDebugDrawSystem)
 {
     init();
     if (window) {
@@ -95,12 +97,34 @@ QSSGRenderContextInterface::QSSGRenderContextInterface(QQuickWindow *window,
         QObject::connect(window, &QWindow::destroyed, [&](QObject *o){
             g_windowReg->removeIf([o](const Binding &b) { return (b.first == o); });
         });
+
+        // Act when the application calls window->releaseResources() and the
+        // render loop emits the corresponding signal in order to forward the
+        // event to us as well. (do not confuse with other release-resources
+        // type of functions, this is about dropping pipeline and other resource
+        // caches than can be automatically recreated if needed on the next frame)
+        QQuickWindowPrivate *wd = QQuickWindowPrivate::get(window);
+        QSGRenderContext *rc = wd->context;
+        if (rc) {
+            // the signal is emitted on the render thread, if there is one
+            QObject::connect(rc, &QSGRenderContext::releaseCachedResourcesRequested, [this] {
+                if (m_releaseCachedResourcesCallback)
+                    m_releaseCachedResourcesCallback();
+                m_renderer->releaseCachedResources();
+                m_shaderCache->releaseCachedResources();
+                m_customMaterialSystem->releaseCachedResources();
+                m_bufferManager->releaseCachedResources();
+                m_rhiContext->releaseCachedResources();
+            });
+        } else {
+            qWarning("QQuickWindow %p has no QSGRenderContext, this should not happen", window);
+        }
     }
 }
 
 QSSGRenderContextInterface::~QSSGRenderContextInterface()
 {
-    m_renderer->releaseResources();
+    m_renderer->releaseCachedResources();
     g_windowReg->removeIf([this](const Binding &b) { return (b.second == this); });
 }
 
@@ -139,7 +163,17 @@ const QSSGRef<QSSGProgramGenerator> &QSSGRenderContextInterface::shaderProgramGe
     return m_shaderProgramGenerator;
 }
 
+const QSSGRef<QSSGDebugDrawSystem> &QSSGRenderContextInterface::debugDrawSystem() const
+{
+    return m_debugDrawSystem;
+}
+
 void QSSGRenderContextInterface::cleanupResources(QList<QSSGRenderGraphObject *> &resources)
+{
+    m_renderer->cleanupResources(resources);
+}
+
+void QSSGRenderContextInterface::cleanupResources(QSet<QSSGRenderGraphObject *> &resources)
 {
     m_renderer->cleanupResources(resources);
 }
@@ -164,7 +198,7 @@ void QSSGRenderContextInterface::beginFrame(QSSGRenderLayer *layer, bool allowRe
     }
 
     m_perFrameAllocator.reset();
-    m_renderer->beginFrame();
+    m_renderer->beginFrame(layer);
     resetResourceCounters(layer);
 }
 
@@ -192,7 +226,7 @@ bool QSSGRenderContextInterface::endFrame(QSSGRenderLayer *layer, bool allowRecu
 
     cleanupUnreferencedBuffers(layer);
 
-    m_renderer->endFrame();
+    m_renderer->endFrame(layer);
     ++m_frameCount;
 
     return true;

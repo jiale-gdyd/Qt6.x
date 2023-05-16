@@ -89,7 +89,7 @@ struct QSSGAllocateBuffer : public QSSGCommand
     {
     }
     void addDebug(QDebug &stream) const {
-        stream << "name:" <<  m_name << "format:" << m_format.toString() << "size multiplier:" << m_sizeMultiplier << "filter:" << toString(m_filterOp) << "tiling:" << toString(m_texCoordOp) << "sceneLifetime:" << m_bufferFlags.isSceneLifetime();
+        stream << "name:" <<  m_name << "format:" << m_format.toString() << "size multiplier:" << m_sizeMultiplier << "filter:" << QSSGBaseTypeHelpers::toString(m_filterOp) << "tiling:" << QSSGBaseTypeHelpers::toString(m_texCoordOp) << "sceneLifetime:" << m_bufferFlags.isSceneLifetime();
     }
 };
 
@@ -120,12 +120,10 @@ struct QSSGBindBuffer : public QSSGCommand
 
 struct QSSGBindShader : public QSSGCommand
 {
-    QByteArray m_shaderPathKey; // something like "vertex_filename>fragment_filename"
-    size_t m_hkey = 0;
+    QByteArray m_shaderPathKey; // something like "prefix>vertex_filename>fragment_filename:source_sha:y_up_in_fbo[:tonemapping]"
     QSSGBindShader(const QByteArray &inShaderPathKey)
         : QSSGCommand(CommandType::BindShader),
-          m_shaderPathKey(inShaderPathKey),
-          m_hkey(QSSGShaderCacheKey::generateHashCode(inShaderPathKey, QSSGShaderFeatures()))
+          m_shaderPathKey(inShaderPathKey)
     {
     }
     QSSGBindShader() : QSSGCommand(CommandType::BindShader) {}

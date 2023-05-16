@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from json.pro.
 
 #####################################################################
@@ -9,7 +12,7 @@ qt_internal_add_test(tst_qt5compat_json
 # special case end
     SOURCES
         tst_qtjson.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Core5Compat
         Qt::CorePrivate
 )

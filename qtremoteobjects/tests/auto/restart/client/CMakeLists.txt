@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 #####################################################################
 ## restart_client Binary:
@@ -9,13 +12,10 @@ qt_internal_add_executable(restart_client
         main.cpp
     INCLUDE_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::RemoteObjects
         Qt::Test
 )
 qt6_add_repc_replicas(restart_client
     ../subclass.rep
 )
-
-#### Keys ignored in scope 1:.:.:client.pro:<TRUE>:
-# TEMPLATE = "app"

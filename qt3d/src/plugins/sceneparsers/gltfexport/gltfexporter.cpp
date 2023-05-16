@@ -17,6 +17,7 @@
 #include <QtCore/qtemporarydir.h>
 #include <QtCore/qregularexpression.h>
 #include <QtCore/qmetaobject.h>
+#include <QtCore/qlibraryinfo.h>
 #include <QtGui/qvector2d.h>
 #include <QtGui/qvector4d.h>
 #include <QtGui/qmatrix4x4.h>
@@ -626,11 +627,7 @@ void GLTFExporter::parseMaterials()
             if (material->effect()) {
                 QList<QParameter *> parameters = material->effect()->parameters();
                 for (auto param : parameters) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
                     if (param->value().metaType().id() == QMetaType::QColor) {
-#else
-                    if (param->value().type() == QMetaType::QColor) {
-#endif
                         QColor color = param->value().value<QColor>();
                         if (param->name() == MATERIAL_AMBIENT_COLOR) {
                             matInfo.colors.insert(QStringLiteral("ambient"), color);
@@ -1767,11 +1764,7 @@ void GLTFExporter::exportParameter(QJsonObject &jsonObj, const QString &name,
         paramObj[typeStr] = GL_SAMPLER_2D;
         paramObj[valueStr] = m_textureIdMap.value(textureVariantToUrl(variant));
     } else {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         switch (variant.metaType().id()) {
-#else
-        switch (variant.type()) {
-#endif
         case QMetaType::Bool:
             paramObj[typeStr] = GL_BOOL;
             paramObj[valueStr] = variant.toBool();
@@ -2043,11 +2036,7 @@ QString GLTFExporter::textureVariantToUrl(const QVariant &var)
 
 void GLTFExporter::setVarToJSonObject(QJsonObject &jsObj, const QString &key, const QVariant &var)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     switch (var.metaType().id()) {
-#else
-    switch (var.type()) {
-#endif
     case QMetaType::Bool:
         jsObj[key] = var.toBool();
         break;

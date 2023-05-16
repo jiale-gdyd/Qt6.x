@@ -16,6 +16,8 @@
 
 QT_BEGIN_NAMESPACE
 
+using namespace Qt::StringLiterals;
+
 static CodeMarker *marker_ = nullptr;
 
 WebXMLGenerator::WebXMLGenerator(FileResolver& file_resolver) : HtmlGenerator(file_resolver) {}
@@ -27,7 +29,7 @@ void WebXMLGenerator::initializeGenerator()
 
 void WebXMLGenerator::terminateGenerator()
 {
-    Generator::terminateGenerator();
+    HtmlGenerator::terminateGenerator();
 }
 
 QString WebXMLGenerator::format()
@@ -103,7 +105,7 @@ void WebXMLGenerator::generateExampleFilePage(const Node *en, ResolvedFile resol
     QByteArray data;
     QXmlStreamWriter writer(&data);
     writer.setAutoFormatting(true);
-    beginFilePage(en, linkForExampleFile(resolved_file.get_query(), "webxml"));
+    beginSubPage(en, linkForExampleFile(resolved_file.get_query(), "webxml"));
     writer.writeStartDocument();
     writer.writeStartElement("WebXML");
     writer.writeStartElement("document");
@@ -134,7 +136,7 @@ void WebXMLGenerator::generateExampleFilePage(const Node *en, ResolvedFile resol
     writer.writeEndDocument();
 
     out() << data;
-    endFilePage();
+    endSubPage();
 }
 
 void WebXMLGenerator::generateIndexSections(QXmlStreamWriter &writer, Node *node)
@@ -620,10 +622,12 @@ const Atom *WebXMLGenerator::addAtomElements(QXmlStreamWriter &writer, const Ato
     case Atom::Nop:
         break;
 
+    case Atom::CaptionLeft:
     case Atom::ParaLeft:
         writer.writeStartElement("para");
         break;
 
+    case Atom::CaptionRight:
     case Atom::ParaRight:
         writer.writeEndElement(); // para
         break;
@@ -692,12 +696,12 @@ const Atom *WebXMLGenerator::addAtomElements(QXmlStreamWriter &writer, const Ato
                 QString details = std::transform_reduce(
                     file_resolver.get_search_directories().cbegin(),
                     file_resolver.get_search_directories().cend(),
-                    u"Searched directories:"_qs,
+                    u"Searched directories:"_s,
                     std::plus(),
-                    [](const DirectoryPath& directory_path){ return " " + directory_path.value(); }
+                    [](const DirectoryPath &directory_path) -> QString { return u' ' + directory_path.value(); }
                 );
 
-                relative->location().warning(u"Cannot find file to quote from: %1"_qs.arg(location), details);
+                relative->location().warning(u"Cannot find file to quote from: %1"_s.arg(location), details);
             }
         }
         break;

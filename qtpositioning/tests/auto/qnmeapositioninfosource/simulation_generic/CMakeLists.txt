@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from qnmeapositioninfosource_simulation_generic.pro.
 
 #####################################################################
@@ -16,8 +19,6 @@ qt_internal_add_test(tst_qnmeaposinfosource_sim_generic
         ../../utils/qnmeaproxyfactory.cpp ../../utils/qnmeaproxyfactory.h
         ../tst_qnmeapositioninfosource.cpp ../tst_qnmeapositioninfosource.h
         tst_qnmeapositioninfosource_simulation_generic.cpp
-    DEFINES
-        QT_DISABLE_DEPRECATED_BEFORE=0
     INCLUDE_DIRECTORIES
         ..
     LIBRARIES

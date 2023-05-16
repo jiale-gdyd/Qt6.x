@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from material.pro.
 
 # special case skip regeneration
@@ -9,7 +12,7 @@
 qt_internal_add_test(tst_qt3d_material
     SOURCES
         tst_material.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::3DCore
         Qt::3DCorePrivate
         Qt::3DRender

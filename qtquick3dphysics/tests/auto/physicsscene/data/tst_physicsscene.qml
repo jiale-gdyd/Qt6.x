@@ -12,14 +12,15 @@ Item {
     height: 480
     visible: true
 
-    DynamicsWorld {
+    PhysicsWorld {
         gravity: Qt.vector3d(0, -9.81, 0)
         running: true
-        forceDebugView: true
+        forceDebugDraw: true
         typicalLength: 1
         typicalSpeed: 10
-        minTimestep: 16.6667
-        maxTimestep: 16.6667
+        minimumTimestep: 16.6667
+        maximumTimestep: 16.6667
+        scene: viewport.scene
     }
     property bool simulationActuallyRunning: false
 
@@ -94,9 +95,10 @@ Item {
 
                 DynamicRigidBody {
                     id: collisionSphere
+                    massMode: DynamicRigidBody.CustomDensity
                     density: 1000
                     position: Qt.vector3d(0, 6, 0)
-                    enableTriggerReports: true
+                    sendTriggerReports: true
                     property bool inArea: false
 
                     collisionShapes: SphereShape {
@@ -216,17 +218,18 @@ Item {
                 StaticRigidBody {
                     position: "0, 0, 0"
                     collisionShapes: HeightFieldShape {
-                        heightMap: "hf.png"
+                        source: "qrc:/data/hf.png"
                         extents: "8, 2, 4"
                     }
                     physicsMaterial: frictionMaterial
                 }
 
                 DynamicRigidBody {
+                    id: hfBall
+                    massMode: DynamicRigidBody.CustomDensity
                     density: 1000
                     scale: "0.5, 0.5, 0.5"
                     position: Qt.vector3d(-3, 1, 0)
-                    id: hfBall
 
                     collisionShapes: SphereShape {
                         diameter: 1

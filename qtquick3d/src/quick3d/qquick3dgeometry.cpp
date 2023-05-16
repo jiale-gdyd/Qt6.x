@@ -3,6 +3,7 @@
 
 #include "qquick3dgeometry_p.h"
 #include "qquick3dscenemanager_p.h"
+#include <QtQuick3DUtils/private/qssgutils_p.h>
 
 /*!
     \qmltype Geometry
@@ -672,10 +673,9 @@ static inline QSSGMesh::Mesh::DrawMode mapPrimitiveType(QQuick3DGeometry::Primit
         return QSSGMesh::Mesh::DrawMode::TriangleFan;
     case QQuick3DGeometry::PrimitiveType::Triangles:
         return QSSGMesh::Mesh::DrawMode::Triangles;
-    default:
-        Q_ASSERT(false);
-        return QSSGMesh::Mesh::DrawMode::Triangles;
     }
+
+    Q_UNREACHABLE_RETURN(QSSGMesh::Mesh::DrawMode::Triangles);
 }
 
 static inline QSSGMesh::RuntimeMeshData::Attribute::Semantic mapSemantic(QQuick3DGeometry::Attribute::Semantic s)
@@ -709,10 +709,9 @@ static inline QSSGMesh::RuntimeMeshData::Attribute::Semantic mapSemantic(QQuick3
         return QSSGMesh::RuntimeMeshData::Attribute::TargetTangentSemantic;
     case QQuick3DGeometry::Attribute::TargetBinormalSemantic:
         return QSSGMesh::RuntimeMeshData::Attribute::TargetBinormalSemantic;
-    default:
-        Q_ASSERT(false);
-        return QSSGMesh::RuntimeMeshData::Attribute::PositionSemantic;
     }
+
+    Q_UNREACHABLE_RETURN(QSSGMesh::RuntimeMeshData::Attribute::PositionSemantic);
 }
 
 static inline QSSGMesh::Mesh::ComponentType mapComponentType(QQuick3DGeometry::Attribute::ComponentType t)
@@ -726,10 +725,9 @@ static inline QSSGMesh::Mesh::ComponentType mapComponentType(QQuick3DGeometry::A
         return QSSGMesh::Mesh::ComponentType::Int32;
     case QQuick3DGeometry::Attribute::F32Type:
         return QSSGMesh::Mesh::ComponentType::Float32;
-    default:
-        Q_ASSERT(false);
-        return QSSGMesh::Mesh::ComponentType::Float32;
     }
+
+    Q_UNREACHABLE_RETURN(QSSGMesh::Mesh::ComponentType::Float32);
 }
 
 /*!
@@ -743,7 +741,7 @@ QSSGRenderGraphObject *QQuick3DGeometry::updateSpatialNode(QSSGRenderGraphObject
         node = new QSSGRenderGeometry();
         emit geometryNodeDirty();
     }
-
+    QQuick3DObject::updateSpatialNode(node);
     QSSGRenderGeometry *geometry = static_cast<QSSGRenderGeometry *>(node);
     if (d->m_geometryChanged) {
         geometry->clear();
@@ -781,7 +779,7 @@ QSSGRenderGraphObject *QQuick3DGeometry::updateSpatialNode(QSSGRenderGraphObject
             quint32 count = 0;
             if (!d->m_indexBuffer.isEmpty() && indexBufferComponentSize)
                 count = d->m_indexBuffer.size() / indexBufferComponentSize;
-            else
+            else if (d->m_stride)
                 count = d->m_vertexBuffer.size() / d->m_stride;
             geometry->addSubset(offset, count, d->m_min, d->m_max);
         } else {
@@ -795,6 +793,8 @@ QSSGRenderGraphObject *QQuick3DGeometry::updateSpatialNode(QSSGRenderGraphObject
         emit geometryNodeDirty();
         d->m_geometryBoundsChanged = false;
     }
+
+    DebugViewHelpers::ensureDebugObjectName(geometry, this);
 
     return node;
 }

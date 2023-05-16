@@ -1,7 +1,8 @@
 TEMPLATE = subdirs
 
 SUBDIRS = \
-    addressbookserver \
-    afterrequest \
     simple
 
+qtHaveModule(gui): qtHaveModule(concurrent) {
+    SUBDIRS += colorpalette
+}

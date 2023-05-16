@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from transforms-qml.pro.
 
 #####################################################################
@@ -8,7 +11,7 @@ qt_internal_add_manual_test(transforms-qml
     GUI
     SOURCES
         main.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::3DCore
         Qt::3DInput
         Qt::3DQuick
@@ -34,18 +37,18 @@ qt_internal_add_resource(transforms-qml "transforms-qml"
         ${transforms-qml_resource_files}
 )
 set(obj_resource_files
-    "../../../examples/qt3d/exampleresources/assets/obj/ball.obj"
-    "../../../examples/qt3d/exampleresources/assets/obj/material-sphere.obj"
-    "../../../examples/qt3d/exampleresources/assets/obj/plane-10x10.obj"
-    "../../../examples/qt3d/exampleresources/assets/obj/toyplane.obj"
-    "../../../examples/qt3d/exampleresources/assets/obj/trefoil.obj"
+    "../exampleresources/assets/obj/ball.obj"
+    "../exampleresources/assets/obj/material-sphere.obj"
+    "../exampleresources/assets/obj/plane-10x10.obj"
+    "../exampleresources/assets/obj/toyplane.obj"
+    "../exampleresources/assets/obj/trefoil.obj"
 )
 
 qt_internal_add_resource(transforms-qml "obj"
     PREFIX
         "/"
     BASE
-        "../../../examples/qt3d/exampleresources"
+        "../exampleresources"
     FILES
         ${obj_resource_files}
 )

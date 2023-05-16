@@ -11,13 +11,15 @@ Window {
     title: qsTr("Qt Quick 3D Physics - Impeller")
 
     //! [world]
-    DynamicsWorld {
+    PhysicsWorld {
         gravity: Qt.vector3d(0, -490, 0)
+        scene: viewport.scene
     }
     //! [world]
 
     //! [scene]
     View3D {
+        id: viewport
         anchors.fill: parent
 
         //! [environment]
@@ -61,11 +63,19 @@ Window {
         //! [sphere]
         DynamicRigidBody {
             id: sphere
+            massMode: DynamicRigidBody.CustomDensity
             density: 0.00001
             position: Qt.vector3d(0, 600, 0)
             property bool inArea: false
             sendContactReports: true
-            enableTriggerReports: true
+            receiveTriggerReports: true
+
+            onEnteredTriggerBody: {
+                inArea = true
+            }
+            onExitedTriggerBody: {
+                inArea = false
+            }
 
             collisionShapes: SphereShape {}
             Model {
@@ -92,15 +102,6 @@ Window {
                     alphaMode: PrincipledMaterial.Blend
                 }
             }
-
-            onBodyEntered: (body) => {
-                if (body.hasOwnProperty('inArea'))
-                    body.inArea = true;
-            }
-            onBodyExited: (body) => {
-                if (body.hasOwnProperty('inArea'))
-                    body.inArea = false;
-            }
         }
         //! [box]
 
@@ -121,8 +122,8 @@ Window {
 
             onBodyContact: (body, positions, impulses, normals) => {
                 for (var normal of normals) {
-                    let force = normal.times(-2000);
-                    body.applyCentralImpulse(force);
+                    let velocity = normal.times(-700)
+                    body.setLinearVelocity(velocity)
                 }
             }
         }

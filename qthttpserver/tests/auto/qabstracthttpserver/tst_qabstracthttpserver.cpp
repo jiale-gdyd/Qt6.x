@@ -18,11 +18,7 @@
 #include <QtNetwork/qtcpserver.h>
 #include <QtNetwork/qtcpsocket.h>
 #include <QtHttpServer/qhttpserverrequest.h>
-
-#if defined(Q_OS_UNIX)
-#  include <signal.h>
-#  include <unistd.h>
-#endif
+#include <QtHttpServer/qhttpserverresponder.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -38,7 +34,6 @@ private slots:
     void checkListenWarns();
     void websocket();
     void servers();
-    void fork();
     void qtbug82053();
 };
 
@@ -76,15 +71,17 @@ void tst_QAbstractHttpServer::request()
         QHttpServerRequest::Method method = QHttpServerRequest::Method::Unknown;
         quint8 padding[4];
 
-        bool handleRequest(const QHttpServerRequest &request, QTcpSocket *) override
+        bool handleRequest(const QHttpServerRequest &request, QHttpServerResponder &responder) override
         {
             method = request.method();
             url = request.url();
             body = request.body();
+            auto _responder = std::move(responder);
             return true;
         }
 
-        void missingHandler(const QHttpServerRequest &, QTcpSocket *) override {
+        void missingHandler(const QHttpServerRequest &, QHttpServerResponder &&) override
+        {
             Q_ASSERT(false);
         }
     } server;
@@ -109,9 +106,14 @@ void tst_QAbstractHttpServer::checkListenWarns()
 {
     struct HttpServer : QAbstractHttpServer
     {
-        bool handleRequest(const QHttpServerRequest &, QTcpSocket *) override { return true; }
+        bool handleRequest(const QHttpServerRequest &, QHttpServerResponder &responder) override
+        {
+            auto _responder = std::move(responder);
+            return true;
+        }
 
-        void missingHandler(const QHttpServerRequest &, QTcpSocket *) override {
+        void missingHandler(const QHttpServerRequest &, QHttpServerResponder &&) override
+        {
             Q_ASSERT(false);
         }
     } server;
@@ -128,9 +130,14 @@ void tst_QAbstractHttpServer::websocket()
 #else
     struct HttpServer : QAbstractHttpServer
     {
-        bool handleRequest(const QHttpServerRequest &, QTcpSocket *) override { return true; }
+        bool handleRequest(const QHttpServerRequest &, QHttpServerResponder &responder) override
+        {
+            auto _responder = std::move(responder);
+            return true;
+        }
 
-        void missingHandler(const QHttpServerRequest &, QTcpSocket *) override {
+        void missingHandler(const QHttpServerRequest &, QHttpServerResponder &&) override
+        {
             Q_ASSERT(false);
         }
     } server;
@@ -164,9 +171,14 @@ void tst_QAbstractHttpServer::servers()
 {
     struct HttpServer : QAbstractHttpServer
     {
-        bool handleRequest(const QHttpServerRequest &, QTcpSocket *) override { return true; }
+        bool handleRequest(const QHttpServerRequest &, QHttpServerResponder &responder) override
+        {
+            auto _responder = std::move(responder);
+            return true;
+        }
 
-        void missingHandler(const QHttpServerRequest &, QTcpSocket *) override {
+        void missingHandler(const QHttpServerRequest &, QHttpServerResponder &&) override
+        {
             Q_ASSERT(false);
         }
     } server;
@@ -184,79 +196,19 @@ void tst_QAbstractHttpServer::servers()
     QTRY_COMPARE(server.serverPorts().last(), tcpServer2->serverPort());
 }
 
-void tst_QAbstractHttpServer::fork()
-{
-#if defined(Q_OS_UNIX)
-    const auto message = "Hello world!"_ba;
-    struct HttpServer : QAbstractHttpServer
-    {
-        const QByteArray &message;
-        HttpServer(const QByteArray &message) : message(message) {}
-        bool handleRequest(const QHttpServerRequest &, QTcpSocket *socket) override
-        {
-            socket->write("HTTP/1.1 200 OK"_ba);
-            socket->write("\r\n"_ba);
-            socket->write("Content-Length: "_ba);
-            socket->write(QByteArray::number(message.size()));
-            socket->write("\r\n"_ba);
-            socket->write("Connection: close"_ba);
-            socket->write("\r\n"_ba);
-            socket->write("Content-Type: text/html"_ba);
-            socket->write("\r\n\r\n"_ba);
-            socket->write(message);
-            socket->flush();
-            ::kill(::getpid(), SIGKILL);  // Avoids continuing running tests in the child process
-            return true;
-        }
-
-        void missingHandler(const QHttpServerRequest &, QTcpSocket *) override {
-            Q_ASSERT(false);
-        }
-    } server = { message };
-
-    struct TcpServer : QTcpServer
-    {
-        void incomingConnection(qintptr socketDescriptor) override
-        {
-            if (::fork() != 0) {
-                // Parent process: Create a QTcpSocket with the descriptor to close it properly
-                QTcpSocket socket;
-                socket.setSocketDescriptor(socketDescriptor);
-                socket.close();
-            } else {
-                // Child process: It will parse the request and call HttpServer::handleRequest
-                QTcpServer::incomingConnection(socketDescriptor);
-            }
-        }
-    };
-    auto tcpServer = new TcpServer;
-    tcpServer->listen();
-    server.bind(tcpServer);
-    QNetworkAccessManager networkAccessManager;
-    const QUrl url(QString::fromLatin1("http://localhost:%1").arg(tcpServer->serverPort()));
-    auto reply = networkAccessManager.get(QNetworkRequest(url));
-    QSignalSpy finishedSpy(reply, &QNetworkReply::finished);
-    QTRY_VERIFY(finishedSpy.size());
-    QCOMPARE(reply->readAll(), message);
-    reply->close();
-    reply->deleteLater();
-#else
-    QSKIP("fork() not supported by this platform");
-#endif
-}
-
 void tst_QAbstractHttpServer::qtbug82053()
 {
     struct HttpServer : QAbstractHttpServer
     {
         bool wasConnectRequest{false};
-        bool handleRequest(const QHttpServerRequest &req, QTcpSocket *) override
+        bool handleRequest(const QHttpServerRequest &req, QHttpServerResponder &responder) override
         {
+            auto _responder = std::move(responder);
             wasConnectRequest = (req.method() == QHttpServerRequest::Method::Connect);
             return false;
         }
 
-        void missingHandler(const QHttpServerRequest &, QTcpSocket *) override {}
+        void missingHandler(const QHttpServerRequest &, QHttpServerResponder &&) override { }
     } server;
     auto tcpServer = new QTcpServer;
     tcpServer->listen();

@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from barcharttester.pro.
 
 #####################################################################
@@ -9,7 +12,7 @@ qt_internal_add_manual_test(barcharttester
     SOURCES
         chart-widget.cpp chart-widget.h
         main.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Charts
         Qt::Gui
         Qt::Widgets

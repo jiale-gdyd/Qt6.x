@@ -118,7 +118,7 @@ static void boxBoundsRecursive(const QQuick3DNode *baseNode, const QQuick3DNode 
 
     if (auto *model = qobject_cast<const QQuick3DModel *>(node)) {
         auto b = model->bounds();
-        QSSGBounds2BoxPoints corners;
+        QSSGBoxPoints corners;
         b.bounds.expand(corners);
         for (const auto &point : corners) {
             auto p = model->mapPositionToNode(const_cast<QQuick3DNode *>(baseNode), point);
@@ -196,6 +196,8 @@ void QQuick3DRuntimeLoader::loadSource()
     m_boundsDirty = true;
     m_instancingChanged = m_instancing != nullptr;
     updateModels();
+    // Cleanup scene before deleting.
+    scene.cleanup();
 }
 
 void QQuick3DRuntimeLoader::updateModels()
@@ -257,6 +259,10 @@ void QQuick3DRuntimeLoader::setInstancing(QQuick3DInstancing *newInstancing)
 {
     if (m_instancing == newInstancing)
         return;
+
+    QQuick3DObjectPrivate::attachWatcher(this, &QQuick3DRuntimeLoader::setInstancing,
+                                         newInstancing, m_instancing);
+
     m_instancing = newInstancing;
     m_instancingChanged = true;
     updateModels();

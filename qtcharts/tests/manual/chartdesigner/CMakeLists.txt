@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from chartdesigner.pro.
 
 #####################################################################
@@ -13,7 +16,7 @@ qt_internal_add_manual_test(chartdesigner
         mainwindow.cpp mainwindow.h
         objectinspectorwidget.cpp objectinspectorwidget.h
         penwidget.cpp penwidget.h
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Charts
         Qt::Gui
 )

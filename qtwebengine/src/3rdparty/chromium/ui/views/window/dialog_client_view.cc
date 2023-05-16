@@ -1,4 +1,4 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -225,6 +225,10 @@ void DialogClientView::OnThemeChanged() {
   }
 }
 
+void DialogClientView::UpdateInputProtectorTimeStamp() {
+  input_protector_.UpdateViewShownTimeStamp();
+}
+
 void DialogClientView::ResetViewShownTimeStampForTesting() {
   input_protector_.ResetForTesting();
 }
@@ -369,10 +373,10 @@ void DialogClientView::SetupLayout() {
       .AddColumn(LayoutAlignment::kStretch, LayoutAlignment::kStretch, kFixed,
                  TableLayout::ColumnSize::kUsePreferred, 0, 0)
       .AddPaddingColumn(kStretchy, GetExtraViewSpacing())
-      .AddColumn(LayoutAlignment::kStretch, LayoutAlignment::kStretch, kFixed,
+      .AddColumn(LayoutAlignment::kStretch, LayoutAlignment::kEnd, kFixed,
                  TableLayout::ColumnSize::kUsePreferred, 0, 0)
       .AddPaddingColumn(kFixed, button_spacing)
-      .AddColumn(LayoutAlignment::kStretch, LayoutAlignment::kStretch, kFixed,
+      .AddColumn(LayoutAlignment::kStretch, LayoutAlignment::kEnd, kFixed,
                  TableLayout::ColumnSize::kUsePreferred, 0, 0)
       .AddPaddingColumn(kFixed, button_row_insets_.right())
       .AddPaddingRow(kFixed, button_row_insets_.top())
@@ -382,7 +386,7 @@ void DialogClientView::SetupLayout() {
           DISTANCE_BUTTON_MAX_LINKABLE_WIDTH));
 
   // Track which columns to link sizes under MD.
-  constexpr int kViewToColumnIndex[] = {1, 3, 5};
+  constexpr size_t kViewToColumnIndex[] = {1, 3, 5};
   std::vector<size_t> columns_to_link;
 
   // Skip views that are not a button, or are a specific subclass of Button

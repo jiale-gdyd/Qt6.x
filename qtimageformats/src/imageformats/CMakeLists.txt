@@ -1,9 +1,8 @@
-# Generated from imageformats.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
-# special case begin
 add_library(ImageFormats INTERFACE)
 qt_internal_add_docs(ImageFormats
     doc/qtimageformats.qdocconf
 )
-# special case end
 

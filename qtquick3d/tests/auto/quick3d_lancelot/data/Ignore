@@ -17,6 +17,7 @@ view3d/SceneComponent.qml
 effects/PlainView.qml
 custommaterial/NoUniformsUnshadedMaterial.qml
 custommaterial/DepthDrawTestMaterial.qml
+layers/TonemappingTestScene.qml
 lighting/Box.qml
 
 # Misc

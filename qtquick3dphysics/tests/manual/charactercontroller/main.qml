@@ -16,16 +16,17 @@ Window {
     title: qsTr("QtQuick3DPhysics character controller test")
 
 
-    DynamicsWorld {
+    PhysicsWorld {
         id: physicsWorld
         running: true
-        forceDebugView: false
+        forceDebugDraw: false
         //        enableCCD: true
+        scene: viewport.scene
     }
 
     View3D {
         anchors.fill: parent
-        id: viewport1
+        id: viewport
 
 
 
@@ -76,7 +77,7 @@ Window {
             StaticRigidBody {
                 collisionShapes: TriangleMeshShape {
                     id: roomShape
-                    meshSource: "meshes/room.mesh"
+                    source: "meshes/room.mesh"
                 }
 
                 Model {
@@ -94,7 +95,7 @@ Window {
                     z: 600
                 collisionShapes: TriangleMeshShape {
                     id: stairShape
-                    meshSource: "meshes/stairs.mesh"
+                    source: "meshes/stairs.mesh"
                 }
 
                 Model {
@@ -192,14 +193,14 @@ Window {
                     console.log("Collision state:" + collisionText + " (" + collisions + ")")
                 }
 
-                speed.x: wasd.xFactor * 500;
-                speed.z: wasd.zFactor * 500;
-                speed.y: ((wasd.jump && jumpingAllowed) ? 500 : 0)
-                         + wasd.yFactor * 500
-                Behavior on speed.z {
+                movement.x: wasd.xFactor * 500;
+                movement.z: wasd.zFactor * 500;
+                movement.y: ((wasd.jump && jumpingAllowed) ? 500 : 0)
+                          + wasd.yFactor * 500
+                Behavior on movement.z {
                     PropertyAnimation { duration: 200 }
                 }
-                Behavior on speed.x {
+                Behavior on movement.x {
                     PropertyAnimation { duration: 200 }
                 }
 

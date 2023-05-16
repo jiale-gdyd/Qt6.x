@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from animation-keyframe-programmatic.pro.
 
 #####################################################################
@@ -9,7 +12,7 @@ qt_internal_add_manual_test(animation-keyframe-programmatic
     SOURCES
         animationfactory.cpp animationfactory.h
         main.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::3DQuickAnimation
         Qt::3DQuickExtras
         Qt::Gui

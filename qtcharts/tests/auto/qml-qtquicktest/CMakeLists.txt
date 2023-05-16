@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from qml-qtquicktest.pro.
 
 #####################################################################
@@ -14,10 +17,10 @@ qt_internal_add_test(tst_qml-qtquicktest
         ../inc/tst_definitions.h
         main.cpp
     DEFINES
-        QUICK_TEST_SOURCE_DIR=\"\\\"${CMAKE_CURRENT_SOURCE_DIR}/data\\\"\"
+        QUICK_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
     INCLUDE_DIRECTORIES
         ../inc
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Charts
         Qt::Gui
         Qt::Widgets

@@ -28,6 +28,10 @@
 #include <QtNetwork/qsslconfiguration.h>
 #include <QtNetwork/qsslkey.h>
 
+#include <array>
+
+#if QT_CONFIG(ssl)
+
 static const char g_privateKey[] = R"(-----BEGIN RSA PRIVATE KEY-----
 MIIJKAIBAAKCAgEAvdrtZtVquwiG12+vd3OjRVibdK2Ob73DOOWgb5rIgQ+B2Uzc
 OFa0xsiRyc/bam9CEEqgn5YHSn95LJHvN3dbsA8vrFqIXTkisFAuHJqsmsYZbAIi
@@ -114,6 +118,8 @@ ignL7f4e1m2jh0oWTLhuP1hnVFN4KAKpVIJXhbEkH59cLCN6ARXiEHCM9rmK5Rgk
 NQZlAZc2w1Ha9lqisaWWpt42QVhQM64=
 -----END CERTIFICATE-----)";
 
+#endif // QT_CONFIG(ssl)
+
 QT_BEGIN_NAMESPACE
 
 using namespace Qt::StringLiterals;
@@ -164,6 +170,8 @@ private slots:
     void multipleRequests();
     void pipelinedRequests();
     void missingHandler();
+    void pipelinedFutureRequests();
+    void multipleResponses();
 
 private:
     void checkReply(QNetworkReply *reply, const QString &response);
@@ -328,6 +336,11 @@ void tst_QHttpServer::initTestCase()
         return resp;
     });
 
+    httpserver.route("/processing", [](QHttpServerResponder &&responder) {
+        responder.sendResponse(QHttpServerResponse(QHttpServerResponder::StatusCode::Processing));
+        responder.sendResponse(QHttpServerResponse("done"));
+    });
+
     httpserver.afterRequest([] (QHttpServerResponse &&resp) {
         return std::move(resp);
     });
@@ -340,6 +353,13 @@ void tst_QHttpServer::initTestCase()
 
             QTest::qSleep(500);
             return QHttpServerResponse("future is coming");
+        });
+    });
+
+    httpserver.route("/user/<arg>/delayed/", [](const QString &user, unsigned long delayMs) {
+        return QtConcurrent::run([user, delayMs]() -> QHttpServerResponse {
+            QThread::msleep(delayMs);
+            return user;
         });
     });
 #endif
@@ -1026,6 +1046,41 @@ void tst_QHttpServer::missingHandler()
     QTRY_VERIFY(reply->isFinished());
     QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 404);
     reply->deleteLater();
+}
+
+#if QT_CONFIG(concurrent)
+// Test that responses to pipelined requests come in correct order, see also: QTBUG-105202
+void tst_QHttpServer::pipelinedFutureRequests()
+{
+    std::array<QNetworkReply *, 10> replies;
+    QThreadPool::globalInstance()->setMaxThreadCount(static_cast<int>(replies.size()));
+
+    for (std::size_t i = 0; i < replies.size(); i++) {
+        auto delayMs = 1000 / replies.size() * (replies.size() - i);
+
+        QString path = u"/user/%1/delayed/%2"_s.arg(i).arg(delayMs);
+        QNetworkRequest req(QUrl(urlBase.arg(path)));
+        req.setAttribute(QNetworkRequest::HttpPipeliningAllowedAttribute, true);
+        replies[i] = networkAccessManager.get(req);
+    }
+
+    for (std::size_t i = 0; i < replies.size(); i++)
+        checkReply(replies[i], QString::number(i));
+}
+#endif // QT_CONFIG(concurrent)
+
+void tst_QHttpServer::multipleResponses()
+{
+    const QUrl requestUrl(urlBase.arg("/processing"));
+    auto reply = networkAccessManager.get(QNetworkRequest(requestUrl));
+
+    QTRY_VERIFY(reply->isFinished());
+
+    QEXPECT_FAIL("", "QTBUG-108068: QNetworkAccessManager should ignore informational replies",
+                 Abort);
+    QCOMPARE(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(), 200);
+    QCOMPARE(reply->header(QNetworkRequest::ContentTypeHeader), "text/plain");
+    QCOMPARE(reply->readAll(), "done");
 }
 
 QT_END_NAMESPACE

@@ -35,11 +35,13 @@ extern "C" {
 typedef uint32_t csr_config_t;
 extern int csr_get_active_config(csr_config_t *) __attribute__((weak_import));
 
+#ifdef QT_BUILD_INTERNAL
 int responsibility_spawnattrs_setdisclaim(posix_spawnattr_t attrs, int disclaim)
 __attribute__((availability(macos,introduced=10.14),weak_import));
 pid_t responsibility_get_pid_responsible_for_pid(pid_t) __attribute__((weak_import));
 char *** _NSGetArgv();
 extern char **environ;
+#endif
 }
 #endif
 
@@ -255,9 +257,9 @@ QMacAutoReleasePool::QMacAutoReleasePool()
 
 #ifdef QT_DEBUG
     void *poolFrame = nullptr;
-    void *frame;
-    if (backtrace_from_fp(__builtin_frame_address(0), &frame, 1))
-        poolFrame = frame;
+    void *frames[2];
+    if (backtrace_from_fp(__builtin_frame_address(0), frames, 2))
+        poolFrame = frames[1];
 
     if (poolFrame) {
         Dl_info info;
@@ -384,6 +386,7 @@ std::optional<uint32_t> qt_mac_sipConfiguration()
         return; \
     }
 
+#ifdef QT_BUILD_INTERNAL
 void qt_mac_ensureResponsible()
 {
 #if !defined(QT_APPLE_NO_PRIVATE_APIS)
@@ -421,6 +424,7 @@ void qt_mac_ensureResponsible()
     posix_spawnattr_destroy(&attr);
 #endif
 }
+#endif // QT_BUILD_INTERNAL
 
 #endif
 
@@ -549,10 +553,18 @@ void qt_apple_check_os_version()
     const char *os = "macOS";
     const int version = __MAC_OS_X_VERSION_MIN_REQUIRED;
 #endif
-    const NSOperatingSystemVersion required = (NSOperatingSystemVersion){
-        version / 10000, version / 100 % 100, version % 100};
-    const NSOperatingSystemVersion current = NSProcessInfo.processInfo.operatingSystemVersion;
-    if (![NSProcessInfo.processInfo isOperatingSystemAtLeastVersion:required]) {
+
+    const auto required = QVersionNumber(version / 10000, version / 100 % 100, version % 100);
+    const auto current = QOperatingSystemVersion::current().version();
+
+#if defined(Q_OS_MACOS)
+    // Check for compatibility version, in which case we can't do a
+    // comparison to the deployment target, which might be e.g. 11.0
+    if (current.majorVersion() == 10 && current.minorVersion() >= 16)
+        return;
+#endif
+
+    if (current < required) {
         NSDictionary *plist = NSBundle.mainBundle.infoDictionary;
         NSString *applicationName = plist[@"CFBundleDisplayName"];
         if (!applicationName)
@@ -563,8 +575,8 @@ void qt_apple_check_os_version()
         fprintf(stderr, "Sorry, \"%s\" cannot be run on this version of %s. "
             "Qt requires %s %ld.%ld.%ld or later, you have %s %ld.%ld.%ld.\n",
             applicationName.UTF8String, os,
-            os, long(required.majorVersion), long(required.minorVersion), long(required.patchVersion),
-            os, long(current.majorVersion), long(current.minorVersion), long(current.patchVersion));
+            os, long(required.majorVersion()), long(required.minorVersion()), long(required.microVersion()),
+            os, long(current.majorVersion()), long(current.minorVersion()), long(current.microVersion()));
 
         exit(1);
     }

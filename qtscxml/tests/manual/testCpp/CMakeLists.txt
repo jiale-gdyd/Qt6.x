@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #####################################################################
 ## testCpp Tool:
 #####################################################################
@@ -6,7 +9,7 @@ qt_get_tool_target_name(target_name testCpp)
 qt_internal_add_tool(${target_name}
     SOURCES
         testcpp.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Qml
         Qt::Scxml
 )

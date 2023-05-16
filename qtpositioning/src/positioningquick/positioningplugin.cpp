@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
 #include <private/qpositioningquickglobal_p.h>
+#include <QGeoCircle>
+#include <QGeoCoordinate>
+#include <QGeoPath>
+#include <QGeoPolygon>
+#include <QGeoRectangle>
 #include <QtPositioningQuick/private/qquickgeocoordinateanimation_p.h>
 #include <QtCore/QVariantAnimation>
 #include <QtQml/QQmlEngineExtensionPlugin>
@@ -513,8 +518,76 @@ public:
     }
 };
 
+namespace {
+
+bool parseCoordinate(const QVariantMap &map, QGeoCoordinate &c)
+{
+    if (const auto it = map.find(QStringLiteral("latitude")); it != map.end())
+        c.setLatitude(it.value().toDouble());
+    else
+        c.setLatitude(qQNaN());
+    if (const auto it = map.find(QStringLiteral("longitude")); it != map.end())
+        c.setLongitude(it.value().toDouble());
+    else
+        c.setLongitude(qQNaN());
+    if (const auto it = map.find(QStringLiteral("altitude")); it != map.end())
+        c.setAltitude(it.value().toDouble());
+    else
+        c.setAltitude(qQNaN());
+
+    // Not considering the case where the map is valid but containing NaNs.
+    return c.isValid();
+}
+
+bool parseRectangle(const QVariantMap &map, QGeoRectangle &rect)
+{
+    if (const auto it = map.find(QStringLiteral("topLeft")); it != map.end())
+        rect.setTopLeft(it.value().value<QGeoCoordinate>());
+    if (const auto it = map.find(QStringLiteral("bottomLeft")); it != map.end())
+        rect.setBottomLeft(it.value().value<QGeoCoordinate>());
+    if (const auto it = map.find(QStringLiteral("topRight")); it != map.end())
+        rect.setTopRight(it.value().value<QGeoCoordinate>());
+    if (const auto it = map.find(QStringLiteral("bottomRight")); it != map.end())
+        rect.setBottomRight(it.value().value<QGeoCoordinate>());
+    if (const auto it = map.find(QStringLiteral("center")); it != map.end())
+        rect.setCenter(it.value().value<QGeoCoordinate>());
+    if (const auto it = map.find(QStringLiteral("width")); it != map.end())
+        rect.setWidth(it.value().toDouble());
+    if (const auto it = map.find(QStringLiteral("height")); it != map.end())
+        rect.setHeight(it.value().toDouble());
+
+    // Not considering the case where the map is valid but containing NaNs.
+    return rect.isValid();
+}
+}
+
 void QtPositioningDeclarative_initializeModule()
 {
+    QMetaType::registerConverter<QGeoRectangle, QGeoShape>();
+    QMetaType::registerConverter<QGeoShape, QGeoRectangle>();
+    QMetaType::registerConverter<QGeoShape, QGeoCircle>();
+    QMetaType::registerConverter<QGeoCircle, QGeoShape>();
+    QMetaType::registerConverter<QGeoShape, QGeoPath>();
+    QMetaType::registerConverter<QGeoPath, QGeoShape>();
+    QMetaType::registerConverter<QGeoShape, QGeoPolygon>();
+    QMetaType::registerConverter<QGeoPolygon, QGeoShape>();
+
+    if (!QMetaType::registerConverterFunction([](const void *src, void *target) -> bool {
+        const QVariantMap &map = *static_cast<const QVariantMap *>(src);
+        QGeoCoordinate &coord = *static_cast<QGeoCoordinate *>(target);
+        return parseCoordinate(map, coord);
+    }, QMetaType::fromType<QVariantMap>(), QMetaType::fromType<QGeoCoordinate>())) {
+        qWarning("Failed to register conversion function from QVariantMap to QGeoCoordinate");
+    }
+
+    if (!QMetaType::registerConverterFunction([](const void *src, void *target) -> bool {
+        const QVariantMap &map = *static_cast<const QVariantMap *>(src);
+        QGeoRectangle &rect = *static_cast<QGeoRectangle *>(target);
+        return parseRectangle(map, rect);
+    }, QMetaType::fromType<QVariantMap>(), QMetaType::fromType<QGeoRectangle>())) {
+        qWarning("Failed to register conversion function from QVariantMap to QGeoRectangle");
+    }
+
     qRegisterAnimationInterpolator<QGeoCoordinate>(q_coordinateInterpolator);
 }
 

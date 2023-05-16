@@ -40,7 +40,6 @@ Item {
 
             Button {
                 id: button
-                anchors.top: parent.top
                 text: "Render Capture"
 
                 property var reply
@@ -58,6 +57,7 @@ Item {
                     _renderCaptureProvider.updateImage(reply)
                     image.source = "image://rendercapture/" + cid
                     reply.saveImage("capture.png")
+                    reply.destroy()
                     cid++
                     if (continuous === true)
                         doRenderCapture()

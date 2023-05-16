@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from auto.pro.
 
 add_subdirectory(doublevectors)
@@ -28,8 +31,10 @@ if(TARGET Qt::Quick)
     add_subdirectory(qquickgeocoordinateanimation)
     if (QT6_IS_SHARED_LIBS_BUILD)
         add_subdirectory(dummypositionplugin)
+        add_subdirectory(satellitesourceplugin)
         add_subdirectory(declarative_positioning_core)
         add_subdirectory(qdeclarativepositionsource)
         add_subdirectory(declarative_geolocation)
+        add_subdirectory(declarative_satellitesource)
     endif()
 endif()

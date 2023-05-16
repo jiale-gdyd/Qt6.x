@@ -1,4 +1,5 @@
-# Generated from wbmp.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## QWbmpPlugin Plugin:
@@ -14,6 +15,3 @@ qt_internal_add_plugin(QWbmpPlugin
         Qt::Core
         Qt::Gui
 )
-
-#### Keys ignored in scope 1:.:.:wbmp.pro:<TRUE>:
-# OTHER_FILES = "wbmp.json"

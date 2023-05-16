@@ -381,8 +381,7 @@ struct AdjacentSubRangeFinder
 {
     static bool adjacentSubRange(const RenderCommand &, const RenderCommand &)
     {
-        Q_UNREACHABLE();
-        return false;
+        Q_UNREACHABLE_RETURN(false);
     }
 };
 
@@ -595,8 +594,7 @@ int findSubRange(const EntityRenderCommandDataView *view,
     case QSortPolicy::Uniform:
         return end;
     default:
-        Q_UNREACHABLE();
-        return end;
+        Q_UNREACHABLE_RETURN(end);
     }
 }
 

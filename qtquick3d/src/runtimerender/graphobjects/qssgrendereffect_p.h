@@ -19,6 +19,7 @@
 #include <QtQuick3DRuntimeRender/private/qssgrendernode_p.h>
 
 #include <QtQuick3DRuntimeRender/private/qssgrenderimage_p.h>
+#include <QtQuick3DRuntimeRender/private/qssgrendershaderlibrarymanager_p.h>
 
 #include <QtCore/QVariant>
 
@@ -26,16 +27,18 @@ QT_BEGIN_NAMESPACE
 
 struct QSSGRenderLayer;
 struct QSSGCommand;
+class QSSGRenderContextInterface;
 
 struct Q_QUICK3DRUNTIMERENDER_EXPORT QSSGRenderEffect : public QSSGRenderGraphObject
 {
     QSSGRenderEffect();
     ~QSSGRenderEffect();
 
+    void finalizeShaders(const QSSGRenderLayer &layer, QSSGRenderContextInterface *renderContext);
+
     enum class Flags : quint8
     {
-        Active = 0x1u,
-        Dirty = 0x2u
+        Dirty = 0x1u
     };
     using FlagT = std::underlying_type_t<Flags>;
 
@@ -69,27 +72,42 @@ struct Q_QUICK3DRUNTIMERENDER_EXPORT QSSGRenderEffect : public QSSGRenderGraphOb
 
     QVector<Property> properties;
 
-    QSSGRenderLayer *m_layer = nullptr;
     QSSGRenderEffect *m_nextEffect = nullptr;
-
-    void initialize();
-
-    // If our active flag value changes, then we ask the effect manager
-    // to reset our context.
-    void setActive(bool inActive);
-    [[nodiscard]] inline bool isActive() const { return ((flags & FlagT(Flags::Active)) != 0); }
 
     void markDirty();
     void clearDirty();
     [[nodiscard]] inline bool isDirty() const { return ((flags & FlagT(Flags::Dirty)) != 0); }
 
-    QVector<QSSGCommand *> commands;
+    struct Command {
+        QSSGCommand *command;
+        quint8 own : 1;
+    };
+    QVector<Command> commands;
+
+    void resetCommands();
 
     const char *className = nullptr;
-    FlagT flags { FlagT(Flags::Active) | FlagT(Flags::Dirty) };
+    FlagT flags = FlagT(Flags::Dirty);
     bool requiresDepthTexture = false;
     bool incompleteBuildTimeObject = false; // Used by the shadergen tool
     QSSGRenderTextureFormat::Format outputFormat = QSSGRenderTextureFormat::Unknown;
+
+    struct ShaderPrepPassData
+    {
+        QByteArray shaderPathKeyPrefix; // to be completed in finalizeShaders
+        QByteArray vertexShaderCode; // without main(), to be completed in finalizeShaders
+        QByteArray fragmentShaderCode; // same here
+        QSSGCustomShaderMetaData vertexMetaData;
+        QSSGCustomShaderMetaData fragmentMetaData;
+        int bindShaderCmdIndex = 0;
+    };
+
+    struct {
+        bool valid = false;
+        QVector<ShaderPrepPassData> passes;
+    } shaderPrepData;
+
+    QString debugObjectName;
 };
 
 QT_END_NAMESPACE

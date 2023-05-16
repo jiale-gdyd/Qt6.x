@@ -5,7 +5,10 @@
 #include "settingsdialog.h"
 #include "ui_mainwindow.h"
 
-#include <QModbusRtuSerialServer>
+#if QT_CONFIG(modbus_serialport)
+#    include <QModbusRtuSerialServer>
+#    include <QSerialPortInfo>
+#endif
 #include <QModbusTcpServer>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
@@ -23,6 +26,10 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     setupWidgetContainers();
+
+    ui->portEdit->setToolTip(tr("For serial connection enter COM port name\n"
+                                "(eg. COM1, ttyS0, etc).\n"
+                                "For TCP connection enter\n<ip address>:<port> pair."));
 
 #if QT_CONFIG(modbus_serialport)
     ui->connectType->setCurrentIndex(0);
@@ -75,22 +82,33 @@ void MainWindow::onCurrentConnectTypeChanged(int index)
         modbusDevice = nullptr;
     }
 
+//! [create_server_0]
     auto type = static_cast<ModbusConnection>(index);
     if (type == Serial) {
 #if QT_CONFIG(modbus_serialport)
         modbusDevice = new QModbusRtuSerialServer(this);
+        // Try to fill in the first available serial port name if the line edit
+        // is empty, or contains a url (assume that ':' is only a part of url).
+        const auto ports = QSerialPortInfo::availablePorts();
+        const auto currentText = ui->portEdit->text();
+        if (!ports.isEmpty() && (currentText.isEmpty() || currentText.contains(u':')))
+            ui->portEdit->setText(ports.front().portName());
 #endif
     } else if (type == Tcp) {
         modbusDevice = new QModbusTcpServer(this);
-        if (ui->portEdit->text().isEmpty())
-            ui->portEdit->setText(QLatin1String("127.0.0.1:502"));
+        const QUrl currentUrl = QUrl::fromUserInput(ui->portEdit->text());
+        // Check if we already have <ip address>:<port>
+        if (currentUrl.port() <= 0)
+            ui->portEdit->setText(QLatin1String("127.0.0.1:50200"));
     }
+//! [create_server_0]
     ui->listenOnlyBox->setEnabled(type == Serial);
 
     if (!modbusDevice) {
         ui->connectButton->setDisabled(true);
         statusBar()->showMessage(tr("Could not create Modbus server."), 5000);
     } else {
+//! [create_server_1]
         QModbusDataUnitMap reg;
         reg.insert(QModbusDataUnit::Coils, { QModbusDataUnit::Coils, 0, 10 });
         reg.insert(QModbusDataUnit::DiscreteInputs, { QModbusDataUnit::DiscreteInputs, 0, 10 });
@@ -98,9 +116,12 @@ void MainWindow::onCurrentConnectTypeChanged(int index)
         reg.insert(QModbusDataUnit::HoldingRegisters, { QModbusDataUnit::HoldingRegisters, 0, 10 });
 
         modbusDevice->setMap(reg);
+//! [create_server_1]
 
+//! [connect_data_written]
         connect(modbusDevice, &QModbusServer::dataWritten,
                 this, &MainWindow::updateWidgets);
+//! [connect_data_written]
         connect(modbusDevice, &QModbusServer::stateChanged,
                 this, &MainWindow::onStateChanged);
         connect(modbusDevice, &QModbusServer::errorOccurred,
@@ -136,6 +157,7 @@ void MainWindow::onConnectButtonClicked()
     statusBar()->clearMessage();
 
     if (intendToConnect) {
+//! [create_server_2]
         if (static_cast<ModbusConnection>(ui->connectType->currentIndex()) == Serial) {
             modbusDevice->setConnectionParameter(QModbusDevice::SerialPortNameParameter,
                 ui->portEdit->text());
@@ -155,6 +177,7 @@ void MainWindow::onConnectButtonClicked()
             modbusDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, url.host());
         }
         modbusDevice->setServerAddress(ui->serverEdit->text().toInt());
+//! [create_server_2]
         if (!modbusDevice->connectDevice()) {
             statusBar()->showMessage(tr("Connect failed: ") + modbusDevice->errorString(), 5000);
         } else {
@@ -178,6 +201,10 @@ void MainWindow::onStateChanged(int state)
         ui->connectButton->setText(tr("Connect"));
     else if (state == QModbusDevice::ConnectedState)
         ui->connectButton->setText(tr("Disconnect"));
+
+    ui->connectType->setEnabled(!connected);
+    ui->portEdit->setEnabled(!connected);
+    ui->serverEdit->setEnabled(!connected);
 }
 
 void MainWindow::coilChanged(int id)
@@ -192,6 +219,7 @@ void MainWindow::discreteInputChanged(int id)
     bitChanged(id, QModbusDataUnit::DiscreteInputs, button->isChecked());
 }
 
+//! [update_data_locally]
 void MainWindow::bitChanged(int id, QModbusDataUnit::RegisterType table, bool value)
 {
     if (!modbusDevice)
@@ -210,17 +238,24 @@ void MainWindow::setRegister(const QString &value)
     if (registers.contains(objectName)) {
         bool ok = true;
         const quint16 id = quint16(QObject::sender()->property("ID").toUInt());
-        if (objectName.startsWith(QStringLiteral("inReg")))
-            ok = modbusDevice->setData(QModbusDataUnit::InputRegisters, id, value.toUShort(&ok, 16));
-        else if (objectName.startsWith(QStringLiteral("holdReg")))
-            ok = modbusDevice->setData(QModbusDataUnit::HoldingRegisters, id, value.toUShort(&ok, 16));
+        if (objectName.startsWith(QStringLiteral("inReg"))) {
+            const auto uval = value.toUShort(&ok, 16);
+            if (ok)
+                ok = modbusDevice->setData(QModbusDataUnit::InputRegisters, id, uval);
+        } else if (objectName.startsWith(QStringLiteral("holdReg"))) {
+            const auto uval = value.toUShort(&ok, 16);
+            if (ok)
+                ok = modbusDevice->setData(QModbusDataUnit::HoldingRegisters, id, uval);
+        }
 
         if (!ok)
             statusBar()->showMessage(tr("Could not set register: ") + modbusDevice->errorString(),
                                      5000);
     }
 }
+//! [update_data_locally]
 
+//! [update_data_from_remote]
 void MainWindow::updateWidgets(QModbusDataUnit::RegisterType table, int address, int size)
 {
     for (int i = 0; i < size; ++i) {
@@ -241,6 +276,7 @@ void MainWindow::updateWidgets(QModbusDataUnit::RegisterType table, int address,
         }
     }
 }
+//! [update_data_from_remote]
 
 // -- private
 

@@ -4,6 +4,7 @@
 #include "qt3dwindow.h"
 #include "qt3dwindow_p.h"
 
+#include <QtGui/qtguiglobal.h>
 #include <Qt3DCore/qaspectengine.h>
 #include <Qt3DCore/qentity.h>
 #include <Qt3DCore/qcoreaspect.h>
@@ -14,7 +15,9 @@
 #include <Qt3DInput/qinputsettings.h>
 #include <Qt3DLogic/qlogicaspect.h>
 #include <Qt3DRender/qcamera.h>
-#include <Qt3DRender/private/vulkaninstance_p.h>
+#if QT_CONFIG(vulkan)
+#  include <Qt3DRender/private/vulkaninstance_p.h>
+#endif
 #include <Qt3DRender/qt3drender-config.h>
 #include <qopenglcontext.h>
 #include <private/qrendersettings_p.h>
@@ -219,11 +222,7 @@ void setupWindowSurface(QWindow *window, Qt3DRender::API api) noexcept
         } else if (userRequestedApi == QByteArrayLiteral("null")) {
             api = Qt3DRender::API::Null;
         } else if (userRequestedApi == QByteArrayLiteral("auto")) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
             api = Qt3DRender::API::RHI;
-#else
-            api = Qt3DRender::API::OpenGL;
-#endif
         }
     }
 
@@ -232,7 +231,7 @@ void setupWindowSurface(QWindow *window, Qt3DRender::API api) noexcept
     // backend is in use will get a valid value.
     bool useRhi = false;
     if (qEnvironmentVariableIsEmpty("QT3D_RENDERER")) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0) && QT_CONFIG(qt3d_rhi_renderer)
+#if QT_CONFIG(qt3d_rhi_renderer)
         qputenv("QT3D_RENDERER", "rhi");
 #else
         qputenv("QT3D_RENDERER", "opengl");

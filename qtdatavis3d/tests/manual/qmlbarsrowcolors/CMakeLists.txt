@@ -1,8 +1,7 @@
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-set(CMAKE_AUTOUIC ON)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 qt_internal_add_manual_test(qmlbarsrowcolors
     GUI
@@ -10,18 +9,12 @@ qt_internal_add_manual_test(qmlbarsrowcolors
         main.cpp
     )
 
-find_package(Qt6 COMPONENTS Core)
-find_package(Qt6 COMPONENTS Gui)
-find_package(Qt6 COMPONENTS Qml)
-find_package(Qt6 COMPONENTS Quick)
-find_package(Qt6 COMPONENTS DataVisualization)
-
 set_target_properties(qmlbarsrowcolors PROPERTIES
     WIN32_EXECUTABLE TRUE
     MACOSX_BUNDLE TRUE
 )
 target_compile_definitions(qmlbarsrowcolors PUBLIC
-    QT_DISABLE_DEPRECATED_BEFORE=0x050F00
+    QT_DISABLE_DEPRECATED_UP_TO=0x050F00
 )
 
 target_link_libraries(qmlbarsrowcolors PUBLIC

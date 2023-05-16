@@ -10,6 +10,7 @@
 
 #include <QtQuick3DRuntimeRender/private/qssgrenderer_p.h>
 #include <QtQuick3DRuntimeRender/private/qssgrendercamera_p.h>
+#include <QtQuick3DRuntimeRender/private/qssglayerrenderdata_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -86,35 +87,30 @@ void QSSGParticleRenderer::updateUniformsForParticles(QSSGRef<QSSGRhiShaderPipel
             // Ignore lights which are not specified for the particle
             if (!renderable.particles.m_lights.contains(theLight))
                 continue;
-            const bool lightEnabled = lights[lightIdx].enabled;
-            if (lightEnabled) {
-                if (theLight->m_brightness > 0.0f) {
-                    if (theLight->type == QSSGRenderLight::Type::DirectionalLight) {
-                        theLightAmbientTotal += theLight->m_diffuseColor * theLight->m_brightness;
-                    } else if (theLight->type == QSSGRenderLight::Type::PointLight && pointLight < 4) {
-                        lightData.pointLightColor[pointLight] = QVector4D(theLight->m_diffuseColor * theLight->m_brightness, 1.0f);
-                        lightData.pointLightPos[pointLight] = QVector4D(theLight->getGlobalPos(), 1.0f);
-                        lightData.pointLightConstantAtt[pointLight] = aux::translateConstantAttenuation(theLight->m_constantFade);
-                        lightData.pointLightLinearAtt[pointLight] = aux::translateLinearAttenuation(theLight->m_linearFade);
-                        lightData.pointLightQuadAtt[pointLight] = aux::translateQuadraticAttenuation(theLight->m_quadraticFade);
-                        pointLight++;
-                    } else if (theLight->type == QSSGRenderLight::Type::SpotLight && spotLight < 4) {
-                        lightData.spotLightColor[spotLight] = QVector4D(theLight->m_diffuseColor * theLight->m_brightness, 1.0f);
-                        lightData.spotLightPos[spotLight] = QVector4D(theLight->getGlobalPos(), 1.0f);
-                        lightData.spotLightDir[spotLight] = QVector4D(lights[lightIdx].direction, 0.0f);
-                        lightData.spotLightConstantAtt[spotLight] = aux::translateConstantAttenuation(theLight->m_constantFade);
-                        lightData.spotLightLinearAtt[spotLight] = aux::translateLinearAttenuation(theLight->m_linearFade);
-                        lightData.spotLightQuadAtt[spotLight] = aux::translateQuadraticAttenuation(theLight->m_quadraticFade);
-                        float coneAngle = theLight->m_coneAngle;
-                        // Inner cone angle must always be < cone angle, to not have possible undefined behavior for shader smoothstep
-                        float innerConeAngle = std::min(theLight->m_innerConeAngle, coneAngle - 0.01f);
-                        lightData.spotLightConeAngle[spotLight] = qDegreesToRadians(coneAngle);
-                        lightData.spotLightInnerConeAngle[spotLight] = qDegreesToRadians(innerConeAngle);
-                        spotLight++;
-                    }
-                }
-                theLightAmbientTotal += theLight->m_ambientColor;
+            if (theLight->type == QSSGRenderLight::Type::DirectionalLight) {
+                theLightAmbientTotal += theLight->m_diffuseColor * theLight->m_brightness;
+            } else if (theLight->type == QSSGRenderLight::Type::PointLight && pointLight < 4) {
+                lightData.pointLightColor[pointLight] = QVector4D(theLight->m_diffuseColor * theLight->m_brightness, 1.0f);
+                lightData.pointLightPos[pointLight] = QVector4D(theLight->getGlobalPos(), 1.0f);
+                lightData.pointLightConstantAtt[pointLight] = aux::translateConstantAttenuation(theLight->m_constantFade);
+                lightData.pointLightLinearAtt[pointLight] = aux::translateLinearAttenuation(theLight->m_linearFade);
+                lightData.pointLightQuadAtt[pointLight] = aux::translateQuadraticAttenuation(theLight->m_quadraticFade);
+                pointLight++;
+            } else if (theLight->type == QSSGRenderLight::Type::SpotLight && spotLight < 4) {
+                lightData.spotLightColor[spotLight] = QVector4D(theLight->m_diffuseColor * theLight->m_brightness, 1.0f);
+                lightData.spotLightPos[spotLight] = QVector4D(theLight->getGlobalPos(), 1.0f);
+                lightData.spotLightDir[spotLight] = QVector4D(lights[lightIdx].direction, 0.0f);
+                lightData.spotLightConstantAtt[spotLight] = aux::translateConstantAttenuation(theLight->m_constantFade);
+                lightData.spotLightLinearAtt[spotLight] = aux::translateLinearAttenuation(theLight->m_linearFade);
+                lightData.spotLightQuadAtt[spotLight] = aux::translateQuadraticAttenuation(theLight->m_quadraticFade);
+                float coneAngle = theLight->m_coneAngle;
+                // Inner cone angle must always be < cone angle, to not have possible undefined behavior for shader smoothstep
+                float innerConeAngle = std::min(theLight->m_innerConeAngle, coneAngle - 0.01f);
+                lightData.spotLightConeAngle[spotLight] = qDegreesToRadians(coneAngle);
+                lightData.spotLightInnerConeAngle[spotLight] = qDegreesToRadians(innerConeAngle);
+                spotLight++;
             }
+            theLightAmbientTotal += theLight->m_ambientColor;
         }
         // Copy light data
         int lightOffset = shaders->offsetOfUniform("qt_pointLightPosition");
@@ -326,23 +322,23 @@ static QByteArray convertParticleData(QByteArray &dest, const QByteArray &data, 
 }
 
 void QSSGParticleRenderer::rhiPrepareRenderable(QSSGRef<QSSGRhiShaderPipeline> &shaderPipeline,
+                                                QSSGPassKey passKey,
                                                 QSSGRhiContext *rhiCtx,
                                                 QSSGRhiGraphicsPipelineState *ps,
                                                 QSSGParticlesRenderable &renderable,
-                                                QSSGLayerRenderData &inData,
+                                                const QSSGLayerRenderData &inData,
                                                 QRhiRenderPassDescriptor *renderPassDescriptor,
                                                 int samples,
                                                 QSSGRenderCamera *camera,
                                                 int cubeFace,
                                                 QSSGReflectionMapEntry *entry)
 {
-    const void *layerNode = &inData.layer;
     const void *node = &renderable.particles;
     const bool needsConversion = !rhiCtx->rhi()->isTextureFormatSupported(QRhiTexture::RGBA32F);
 
-    QSSGRhiDrawCallData &dcd(cubeFace < 0 ? rhiCtx->drawCallData({ layerNode, node,
+    QSSGRhiDrawCallData &dcd(cubeFace < 0 ? rhiCtx->drawCallData({ passKey, node,
                                                     nullptr, 0, QSSGRhiDrawCallDataKey::Main })
-                                          : rhiCtx->drawCallData({ layerNode, node,
+                                          : rhiCtx->drawCallData({ passKey, node,
                                                                    entry, cubeFace, QSSGRhiDrawCallDataKey::Reflection }));
     shaderPipeline->ensureUniformBuffer(&dcd.ubuf);
 
@@ -380,7 +376,7 @@ void QSSGParticleRenderer::rhiPrepareRenderable(QSSGRef<QSSGRhiShaderPipeline> &
     if (renderable.particles.m_depthSorting) {
         bool animatedParticles = renderable.particles.m_featureLevel == QSSGRenderParticles::FeatureLevel::Animated;
         if (!camera)
-            sortParticles(particleData.sortedData, particleData.sortData, particleBuffer, renderable.particles, *inData.cameraDirection, animatedParticles);
+            sortParticles(particleData.sortedData, particleData.sortData, particleBuffer, renderable.particles, inData.cameraData->direction, animatedParticles);
         else
             sortParticles(particleData.sortedData, particleData.sortData, particleBuffer, renderable.particles, camera->getScalingCorrectDirection(), animatedParticles);
         uploadData = convertParticleData(particleData.convertData, particleData.sortedData, needsConversion);
@@ -582,10 +578,9 @@ void QSSGParticleRenderer::prepareParticlesForModel(QSSGRef<QSSGRhiShaderPipelin
 
 void QSSGParticleRenderer::rhiRenderRenderable(QSSGRhiContext *rhiCtx,
                                                QSSGParticlesRenderable &renderable,
-                                               QSSGLayerRenderData &inData,
                                                bool *needsSetViewport,
                                                int cubeFace,
-                                               QSSGRhiGraphicsPipelineState *state)
+                                               const QSSGRhiGraphicsPipelineState &state)
 {
     QRhiGraphicsPipeline *ps = renderable.rhiRenderData.mainPass.pipeline;
     QRhiShaderResourceBindings *srb = renderable.rhiRenderData.mainPass.srb;
@@ -598,6 +593,8 @@ void QSSGParticleRenderer::rhiRenderRenderable(QSSGRhiContext *rhiCtx,
     if (!ps || !srb)
         return;
 
+    Q_QUICK3D_PROFILE_START(QQuick3DProfiler::Quick3DRenderCall);
+
     QRhiCommandBuffer *cb = rhiCtx->commandBuffer();
     // QRhi optimizes out unnecessary binding of the same pipline
     cb->setGraphicsPipeline(ps);
@@ -605,10 +602,7 @@ void QSSGParticleRenderer::rhiRenderRenderable(QSSGRhiContext *rhiCtx,
     cb->setShaderResources(srb);
 
     if (needsSetViewport && *needsSetViewport) {
-        if (!state)
-            cb->setViewport(rhiCtx->graphicsPipelineState(&inData)->viewport);
-        else
-            cb->setViewport(state->viewport);
+        cb->setViewport(state.viewport);
         *needsSetViewport = false;
     }
     if (renderable.particles.m_featureLevel >= QSSGRenderParticles::FeatureLevel::Line) {
@@ -617,10 +611,12 @@ void QSSGParticleRenderer::rhiRenderRenderable(QSSGRhiContext *rhiCtx,
         int N = renderable.particles.m_particleBuffer.particleCount() / S;
         cb->draw(2 * S, N);
         QSSGRHICTX_STAT(rhiCtx, draw(2 * S, N));
+        Q_QUICK3D_PROFILE_END_WITH_ID(QQuick3DProfiler::Quick3DRenderCall, (2 * S | quint64(N) << 32), renderable.particles.profilingId);
     } else {
         // draw triangle strip with 2 triangles N times
         cb->draw(4, renderable.particles.m_particleBuffer.particleCount());
         QSSGRHICTX_STAT(rhiCtx, draw(4, renderable.particles.m_particleBuffer.particleCount()));
+        Q_QUICK3D_PROFILE_END_WITH_ID(QQuick3DProfiler::Quick3DRenderCall, (4 | quint64(renderable.particles.m_particleBuffer.particleCount()) << 32), renderable.particles.profilingId);
     }
 }
 

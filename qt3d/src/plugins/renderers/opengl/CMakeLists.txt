@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from opengl.pro.
 
 set(openGLRendererSources graphicshelpers/graphicscontext.cpp graphicshelpers/graphicscontext_p.h
@@ -117,6 +120,9 @@ qt_internal_add_plugin(OpenGLRendererPlugin
         Qt::OpenGL
         Qt::OpenGLPrivate
 )
+
+# QTransform conflicts
+set_target_properties(OpenGLRendererPlugin PROPERTIES UNITY_BUILD OFF)
 
 qt_internal_extend_target(OpenGLRendererPlugin CONDITION NOT INTEGRITY
     SOURCES

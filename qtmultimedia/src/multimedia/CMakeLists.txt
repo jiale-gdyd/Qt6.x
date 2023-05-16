@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from multimedia.pro.
 
 #####################################################################
@@ -25,7 +28,7 @@ qt_internal_add_module(Multimedia
         audio/qaudiohelpers.cpp audio/qaudiohelpers_p.h
         audio/qaudiosource.cpp audio/qaudiosource.h
         audio/qaudiosink.cpp audio/qaudiosink.h
-        audio/qaudiosystem_p.h
+        audio/qaudiosystem.cpp audio/qaudiosystem_p.h
         audio/qsamplecache_p.cpp audio/qsamplecache_p.h
         audio/qsoundeffect.cpp audio/qsoundeffect.h
         audio/qwavedecoder.cpp audio/qwavedecoder.h
@@ -36,6 +39,7 @@ qt_internal_add_module(Multimedia
         platform/qplatformaudioinput_p.h
         platform/qplatformaudiooutput_p.h
         platform/qplatformcamera.cpp platform/qplatformcamera_p.h
+        platform/qplatformscreencapture.cpp platform/qplatformscreencapture_p.h
         platform/qplatformimagecapture.cpp platform/qplatformimagecapture_p.h
         platform/qplatformmediacapture.cpp platform/qplatformmediacapture_p.h
         platform/qplatformmediadevices.cpp platform/qplatformmediadevices_p.h
@@ -43,7 +47,7 @@ qt_internal_add_module(Multimedia
         platform/qplatformmediaformatinfo.cpp  platform/qplatformmediaformatinfo_p.h
         platform/qplatformmediaintegration.cpp platform/qplatformmediaintegration_p.h
         platform/qplatformmediaplayer.cpp platform/qplatformmediaplayer_p.h
-        platform/qplatformmediaplugin_p.h
+        platform/qplatformmediaplugin.cpp platform/qplatformmediaplugin_p.h
         platform/qplatformvideodevices.cpp platform/qplatformvideodevices_p.h
         platform/qplatformvideosink.cpp platform/qplatformvideosink_p.h
         playback/qmediaplayer.cpp playback/qmediaplayer.h playback/qmediaplayer_p.h
@@ -57,6 +61,7 @@ qt_internal_add_module(Multimedia
         qtmultimediaglobal.h qtmultimediaglobal_p.h
         recording/qmediacapturesession.cpp recording/qmediacapturesession.h
         recording/qmediarecorder.cpp recording/qmediarecorder.h recording/qmediarecorder_p.h
+        recording/qscreencapture.cpp recording/qscreencapture.h
         video/qabstractvideobuffer.cpp video/qabstractvideobuffer_p.h
         video/qmemoryvideobuffer.cpp video/qmemoryvideobuffer_p.h
         video/qvideoframe.cpp video/qvideoframe.h
@@ -168,6 +173,11 @@ qt_internal_extend_target(Multimedia CONDITION APPLE
         ${FWCoreAudio}
         ${FWCoreMedia}
         ${FWCoreFoundation}
+)
+
+qt_internal_extend_target(Multimedia CONDITION MACOS
+    SOURCES
+        darwin/qmacosaudiodatautils_p.h
 )
 
 qt_internal_extend_target(Multimedia CONDITION IOS OR TVOS
@@ -309,3 +319,8 @@ qt_internal_add_shaders(Multimedia "shaders_gl_macos_linear"
     OUTPUTS
         "shaders/rectsampler_bgra_linear.frag.qsb"
 )
+
+if (DEFINED QT_DEFAULT_MEDIA_BACKEND)
+    target_compile_definitions(Multimedia
+        PRIVATE QT_DEFAULT_MEDIA_BACKEND="${QT_DEFAULT_MEDIA_BACKEND}")
+endif()

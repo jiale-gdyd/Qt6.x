@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from httpserver.pro.
 
 #####################################################################
@@ -15,6 +18,7 @@ qt_internal_add_module(HttpServer
         qhttpserverrouter.cpp qhttpserverrouter.h qhttpserverrouter_p.h
         qhttpserverrouterrule.cpp qhttpserverrouterrule.h qhttpserverrouterrule_p.h
         qhttpserverrouterviewtraits.h
+        qhttpserverstream.cpp qhttpserverstream_p.h
         qhttpserverviewtraits.h
         qhttpserverviewtraits_impl.h
         qthttpserverglobal.h

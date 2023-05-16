@@ -1,6 +1,0 @@
-SYNCQT.HEADER_FILES = 
-SYNCQT.GENERATED_HEADER_FILES = qtquick3dphysicshelpersversion.h QtQuick3DPhysicsHelpersVersion QtQuick3DPhysicsHelpers 
-SYNCQT.PRIVATE_HEADER_FILES = qcapsulegeometry_p.h 
-SYNCQT.QPA_HEADER_FILES = 
-SYNCQT.CLEAN_HEADER_FILES = 
-SYNCQT.INJECTIONS = 

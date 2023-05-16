@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Don't build manual tests when targeting iOS.
 if(UIKIT)
     return()
@@ -8,6 +11,7 @@ add_subdirectory(blendmodes)
 add_subdirectory(cameralookat)
 add_subdirectory(dynamic3DTest)
 add_subdirectory(dynamicenvmap)
+add_subdirectory(infinitegrid)
 add_subdirectory(instancing)
 add_subdirectory(instance-picking)
 add_subdirectory(lightmap_concept)

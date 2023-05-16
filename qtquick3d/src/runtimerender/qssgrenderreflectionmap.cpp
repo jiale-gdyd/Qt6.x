@@ -17,6 +17,11 @@ QSSGRenderReflectionMap::QSSGRenderReflectionMap(const QSSGRenderContextInterfac
 
 QSSGRenderReflectionMap::~QSSGRenderReflectionMap()
 {
+    releaseCachedResources();
+}
+
+void QSSGRenderReflectionMap::releaseCachedResources()
+{
     for (QSSGReflectionMapEntry &entry : m_reflectionMapList)
         entry.destroyRhiResources();
 
@@ -54,6 +59,8 @@ void QSSGRenderReflectionMap::addReflectionMapEntry(qint32 probeIdx, const QSSGR
 
     QRhiTexture::Format rhiFormat = QRhiTexture::RGBA16F;
 
+    const QByteArray rtName = probe.debugObjectName.toLatin1();
+
     const int mapRes = 1 << probe.reflectionMapRes;
     QSize pixelSize(mapRes, mapRes);
     QSSGReflectionMapEntry *pEntry = reflectionMapEntry(probeIdx);
@@ -75,7 +82,7 @@ void QSSGRenderReflectionMap::addReflectionMapEntry(qint32 probeIdx, const QSSGR
         if (probe.hasScheduledUpdate)
             pEntry->m_rendered = false;
 
-        if (mapRes != pEntry->m_rhiCube->pixelSize().width()) {
+        if (!pEntry->m_rhiDepthStencil || mapRes != pEntry->m_rhiCube->pixelSize().width()) {
             pEntry->destroyRhiResources();
             pEntry->m_rhiDepthStencil = allocateRhiRenderBuffer(rhi, QRhiRenderBuffer::DepthStencil, pixelSize);
             pEntry->m_rhiCube = allocateRhiTexture(rhi, rhiFormat, pixelSize, QRhiTexture::RenderTarget | QRhiTexture::CubeMap
@@ -98,11 +105,12 @@ void QSSGRenderReflectionMap::addReflectionMapEntry(qint32 probeIdx, const QSSGR
                 pEntry->m_skyBoxSrbs[i] = nullptr;
         }
 
-        for (int face = 0; face < 6; ++face) {
-            QRhiTextureRenderTarget *&rt(pEntry->m_rhiRenderTargets[face]);
+
+        for (const auto face : QSSGRenderTextureCubeFaces) {
+            QRhiTextureRenderTarget *&rt(pEntry->m_rhiRenderTargets[quint8(face)]);
             if (!rt) {
                 QRhiColorAttachment att(pEntry->m_rhiCube);
-                att.setLayer(face); // 6 render targets, each referencing one face of the cubemap
+                att.setLayer(quint8(face)); // 6 render targets, each referencing one face of the cubemap
                 QRhiTextureRenderTargetDescription rtDesc;
                 rtDesc.setColorAttachments({ att });
                 rtDesc.setDepthStencilBuffer(pEntry->m_rhiDepthStencil);
@@ -114,6 +122,7 @@ void QSSGRenderReflectionMap::addReflectionMapEntry(qint32 probeIdx, const QSSGR
                 if (!rt->create())
                     qWarning("Failed to build reflection map render target");
             }
+            rt->setName(rtName + QByteArrayLiteral(" reflection cube face: ") + QSSGBaseTypeHelpers::displayName(face));
         }
 
         if (!pEntry->m_prefilterPipeline) {
@@ -129,13 +138,15 @@ void QSSGRenderReflectionMap::addReflectionMapEntry(qint32 probeIdx, const QSSGR
                 pEntry->m_prefilterMipLevelSizes.insert(mipLevel, levelSize);
                 // Setup Render targets (6 * mipmapCount)
                 QVarLengthArray<QRhiTextureRenderTarget *, 6> renderTargets;
-                for (int face = 0; face < 6; ++face) {
+                for (const auto face : QSSGRenderTextureCubeFaces) {
                     QRhiColorAttachment att(pEntry->m_rhiPrefilteredCube);
-                    att.setLayer(face);
+                    att.setLayer(quint8(face));
                     att.setLevel(mipLevel);
                     QRhiTextureRenderTargetDescription rtDesc;
                     rtDesc.setColorAttachments({att});
                     auto renderTarget = rhi->newTextureRenderTarget(rtDesc);
+                    renderTarget->setName(rtName + QByteArrayLiteral(" reflection prefilter mip/face ")
+                                          + QByteArray::number(mipLevel) + QByteArrayLiteral("/") + QSSGBaseTypeHelpers::displayName(face));
                     renderTarget->setDescription(rtDesc);
                     if (!pEntry->m_rhiPrefilterRenderPassDesc)
                         pEntry->m_rhiPrefilterRenderPassDesc = renderTarget->newCompatibleRenderPassDescriptor();
@@ -242,6 +253,24 @@ void QSSGRenderReflectionMap::addReflectionMapEntry(qint32 probeIdx, const QSSGR
 
         pEntry->m_timeSlicing = probe.timeSlicing;
         pEntry->m_probeIndex = probeIdx;
+        Q_QUICK3D_PROFILE_ASSIGN_ID(&probe, pEntry);
+    }
+}
+
+void QSSGRenderReflectionMap::addTexturedReflectionMapEntry(qint32 probeIdx, const QSSGRenderReflectionProbe &probe)
+{
+    QSSGReflectionMapEntry *pEntry = reflectionMapEntry(probeIdx);
+    const QSSGRenderImageTexture probeTexture = m_context.bufferManager()->loadRenderImage(probe.texture, QSSGBufferManager::MipModeFollowRenderImage);
+    if (!pEntry) {
+        if (probeTexture.m_texture)
+            m_reflectionMapList.push_back(QSSGReflectionMapEntry::withRhiTexturedCubeMap(probeIdx, probeTexture.m_texture));
+        else
+            addReflectionMapEntry(probeIdx, probe);
+    } else {
+        if (pEntry->m_rhiDepthStencil)
+            pEntry->destroyRhiResources();
+        if (probeTexture.m_texture)
+            pEntry->m_rhiPrefilteredCube = probeTexture.m_texture;
     }
 }
 
@@ -459,9 +488,9 @@ void QSSGReflectionMapEntry::renderMips(QSSGRhiContext *context)
     views.append(lookAt(QVector3D(0.0f, 0.0f, 0.0f), QVector3D(0.0, 0.0, -1.0), QVector3D(0.0f, -1.0f, 0.0f)));
 
     rub = rhi->nextResourceUpdateBatch();
-    for (int face = 0; face < 6; ++face) {
-        rub->updateDynamicBuffer(m_prefilterVertBuffer, face * ubufElementSize, 64, mvp.constData());
-        rub->updateDynamicBuffer(m_prefilterVertBuffer, face * ubufElementSize + 64, 64, views[face].constData());
+    for (const auto face : QSSGRenderTextureCubeFaces) {
+        rub->updateDynamicBuffer(m_prefilterVertBuffer, quint8(face) * ubufElementSize, 64, mvp.constData());
+        rub->updateDynamicBuffer(m_prefilterVertBuffer, quint8(face) * ubufElementSize + 64, 64, views[quint8(face)].constData());
     }
 
     const QSize mapSize = m_rhiCube->pixelSize();
@@ -506,19 +535,20 @@ void QSSGReflectionMapEntry::renderMips(QSSGRhiContext *context)
         if (mipLevel > 0 && m_timeSlicing == QSSGRenderReflectionProbe::ReflectionTimeSlicing::AllFacesAtOnce)
             mipLevel = m_timeSliceFrame;
 
-        for (int face = 0; face < 6; ++face) {
+        for (auto face : QSSGRenderTextureCubeFaces) {
             if (m_timeSlicing == QSSGRenderReflectionProbe::ReflectionTimeSlicing::IndividualFaces)
                 face = m_timeSliceFace;
 
-            cb->beginPass(m_rhiPrefilterRenderTargetsMap[mipLevel][face], QColor(0, 0, 0, 1), { 1.0f, 0 }, nullptr, QSSGRhiContext::commonPassFlags());
-            QSSGRHICTX_STAT(context, beginRenderPass(m_rhiPrefilterRenderTargetsMap[mipLevel][face]));
+            cb->beginPass(m_rhiPrefilterRenderTargetsMap[mipLevel][quint8(face)], QColor(0, 0, 0, 1), { 1.0f, 0 }, nullptr, QSSGRhiContext::commonPassFlags());
+            QSSGRHICTX_STAT(context, beginRenderPass(m_rhiPrefilterRenderTargetsMap[mipLevel][quint8(face)]));
+            Q_QUICK3D_PROFILE_START(QQuick3DProfiler::Quick3DRenderPass);
             if (mipLevel < mipmapCount - 1) {
                 // Specular pre-filtered Cube Map levels
                 cb->setGraphicsPipeline(m_prefilterPipeline);
                 cb->setVertexInput(0, 1, &vbufBinding);
                 cb->setViewport(QRhiViewport(0, 0, m_prefilterMipLevelSizes[mipLevel].width(), m_prefilterMipLevelSizes[mipLevel].height()));
                 QVector<QPair<int, quint32>> dynamicOffsets = {
-                    { 0, quint32(ubufElementSize * face) },
+                    { 0, quint32(ubufElementSize * quint8(face)) },
                     { 2, quint32(uBufSamplesElementSize * mipLevel) }
                 };
                 cb->setShaderResources(m_prefilterSrb, 2, dynamicOffsets.constData());
@@ -528,15 +558,19 @@ void QSSGReflectionMapEntry::renderMips(QSSGRhiContext *context)
                 cb->setVertexInput(0, 1, &vbufBinding);
                 cb->setViewport(QRhiViewport(0, 0, m_prefilterMipLevelSizes[mipLevel].width(), m_prefilterMipLevelSizes[mipLevel].height()));
                 QVector<QPair<int, quint32>> dynamicOffsets = {
-                    { 0, quint32(ubufElementSize * face) },
+                    { 0, quint32(ubufElementSize * quint8(face)) },
                     { 2, quint32(uBufIrradianceElementSize) }
                 };
                 cb->setShaderResources(m_irradianceSrb, 1, dynamicOffsets.constData());
             }
+            Q_QUICK3D_PROFILE_START(QQuick3DProfiler::Quick3DRenderCall);
             cb->draw(36);
             QSSGRHICTX_STAT(context, draw(36, 1));
+            Q_QUICK3D_PROFILE_END_WITH_ID(QQuick3DProfiler::Quick3DRenderCall, 36llu | (1llu << 32), profilingId);
             cb->endPass();
             QSSGRHICTX_STAT(context, endRenderPass());
+            Q_QUICK3D_PROFILE_END_WITH_STRING(QQuick3DProfiler::Quick3DRenderPass, 0, QByteArrayLiteral("reflection_map_level_") + QByteArray::number(mipLevel) \
+                                              + QByteArrayLiteral("_face_") + QByteArrayView(QSSGBaseTypeHelpers::toString(QSSGRenderTextureCubeFace(face))));
 
             if (m_timeSlicing == QSSGRenderReflectionProbe::ReflectionTimeSlicing::IndividualFaces)
                 break;
@@ -552,6 +586,13 @@ void QSSGReflectionMapEntry::renderMips(QSSGRhiContext *context)
     cb->debugMarkEnd();
 }
 
+QSSGReflectionMapEntry QSSGReflectionMapEntry::withRhiTexturedCubeMap(quint32 probeIdx, QRhiTexture *prefiltered)
+{
+    QSSGReflectionMapEntry e;
+    e.m_probeIndex = probeIdx;
+    e.m_rhiPrefilteredCube = prefiltered;
+    return e;
+}
 
 QSSGReflectionMapEntry QSSGReflectionMapEntry::withRhiCubeMap(quint32 probeIdx,
                                                            QRhiTexture *cube,
@@ -570,7 +611,9 @@ void QSSGReflectionMapEntry::destroyRhiResources()
 {
     delete m_rhiCube;
     m_rhiCube = nullptr;
-    delete m_rhiPrefilteredCube;
+    // Without depth stencil the prefiltered cubemap is assumed to be not owned here and shouldn't be deleted
+    if (m_rhiDepthStencil)
+        delete m_rhiPrefilteredCube;
     m_rhiPrefilteredCube = nullptr;
     delete m_rhiDepthStencil;
     m_rhiDepthStencil = nullptr;

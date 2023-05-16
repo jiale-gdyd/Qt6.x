@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from transparency-qml-scene3d.pro.
 
 #####################################################################
@@ -8,7 +11,7 @@ qt_internal_add_manual_test(transparency-qml-scene3d
     GUI
     SOURCES
         main.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::3DCore
         Qt::3DInput
         Qt::3DQuick
@@ -32,21 +35,21 @@ qt_internal_add_resource(transparency-qml-scene3d "transparency-qml-scene3d"
         ${transparency-qml-scene3d_resource_files}
 )
 set(cubemaps_resource_files
-    "../../../examples/qt3d/exampleresources/assets/cubemaps/default/default_irradiance.dds"
-    "../../../examples/qt3d/exampleresources/assets/cubemaps/default/default_specular.dds"
-    "../../../examples/qt3d/exampleresources/assets/cubemaps/miramar/miramar_negx.webp"
-    "../../../examples/qt3d/exampleresources/assets/cubemaps/miramar/miramar_negy.webp"
-    "../../../examples/qt3d/exampleresources/assets/cubemaps/miramar/miramar_negz.webp"
-    "../../../examples/qt3d/exampleresources/assets/cubemaps/miramar/miramar_posx.webp"
-    "../../../examples/qt3d/exampleresources/assets/cubemaps/miramar/miramar_posy.webp"
-    "../../../examples/qt3d/exampleresources/assets/cubemaps/miramar/miramar_posz.webp"
+    "../exampleresources/assets/cubemaps/default/default_irradiance.dds"
+    "../exampleresources/assets/cubemaps/default/default_specular.dds"
+    "../exampleresources/assets/cubemaps/miramar/miramar_negx.webp"
+    "../exampleresources/assets/cubemaps/miramar/miramar_negy.webp"
+    "../exampleresources/assets/cubemaps/miramar/miramar_negz.webp"
+    "../exampleresources/assets/cubemaps/miramar/miramar_posx.webp"
+    "../exampleresources/assets/cubemaps/miramar/miramar_posy.webp"
+    "../exampleresources/assets/cubemaps/miramar/miramar_posz.webp"
 )
 
 qt_internal_add_resource(transparency-qml-scene3d "cubemaps"
     PREFIX
         "/"
     BASE
-        "../../../examples/qt3d/exampleresources"
+        "../exampleresources"
     FILES
         ${cubemaps_resource_files}
 )

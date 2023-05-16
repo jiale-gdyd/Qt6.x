@@ -14,12 +14,13 @@ Window {
     visible: true
     title: qsTr("PhysX Friction Test")
 
-    DynamicsWorld {
+    PhysicsWorld {
         id: physicsWorld
         gravity: Qt.vector3d(0, -9.81, 0)
         running: false
-        typicalLength: toleranceLengthSlider.value
-        typicalSpeed: toleranceSpeedSlider.value
+        typicalLength: typicalLengthSlider.value
+        typicalSpeed: typicalSpeedSlider.value
+        scene: viewport.scene
     }
 
     View3D {
@@ -44,7 +45,7 @@ Window {
                 x: -2
                 y: 1
                 eulerRotation : Qt.vector3d(-20, -20, 0)
-                clipFar: 50
+                clipFar: 500
                 clipNear: 0.01
             }
 
@@ -63,13 +64,15 @@ Window {
                 restitution: restitutionSlider.value
             }
 
-            StaticRigidBody {
+            DynamicRigidBody {
                 id: floor
+                isKinematic: true
                 eulerRotation: Qt.vector3d(-79, -90, 0)
+                kinematicEulerRotation: Qt.vector3d(-79, -90, 0)
                 scale: Qt.vector3d(0.3, 0.3, 0.3)
                 physicsMaterial: testMaterial
                 collisionShapes: PlaneShape {
-                    enableDebugView: true
+                    enableDebugDraw: true
                 }
                 Model {
                     source: "#Rectangle"
@@ -99,7 +102,7 @@ Window {
                 }
                 collisionShapes: BoxShape {
                     extents: Qt.vector3d(1, 1, 1)
-                    enableDebugView: true
+                    enableDebugDraw: true
                 }
             }
         } // scene
@@ -124,11 +127,9 @@ Window {
                     console.log("Set physics to", physicsWorld.running)
                 }
             } else if (event.key === Qt.Key_J) {
-                floor.eulerRotation.z++
-                console.log("Floor rotation", floor.eulerRotation.z)
+                floor.kinematicEulerRotation.x++
             } else if (event.key === Qt.Key_K) {
-                floor.eulerRotation.z--
-                console.log("Floor rotation", floor.eulerRotation.z)
+                floor.kinematicEulerRotation.x--
             } else if (event.key === Qt.Key_I) {
                 box.init()
             }
@@ -172,10 +173,10 @@ Window {
         }
 
         Label {
-            text: "Tolerance length: " + toleranceLengthSlider.value
+            text: "Typical length: " + typicalLengthSlider.value
         }
         Slider {
-            id: toleranceLengthSlider
+            id: typicalLengthSlider
             focusPolicy: Qt.NoFocus
             from: 0
             to: 10
@@ -183,10 +184,10 @@ Window {
         }
 
         Label {
-            text: "Tolerance speed: " + toleranceSpeedSlider.value
+            text: "Typical speed: " + typicalSpeedSlider.value
         }
         Slider {
-            id: toleranceSpeedSlider
+            id: typicalSpeedSlider
             focusPolicy: Qt.NoFocus
             from: 0
             to: 10

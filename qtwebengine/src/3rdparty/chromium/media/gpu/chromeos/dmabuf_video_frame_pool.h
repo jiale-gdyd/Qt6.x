@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -18,10 +18,6 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 
-namespace gpu {
-class GpuMemoryBufferFactory;
-}  // namespace gpu
-
 namespace media {
 
 // Forward declare for use in AsPlatformVideoFramePool.
@@ -38,7 +34,6 @@ class MEDIA_GPU_EXPORT DmabufVideoFramePool {
 
   using CreateFrameCB =
       base::RepeatingCallback<CroStatus::Or<scoped_refptr<VideoFrame>>(
-          gpu::GpuMemoryBufferFactory*,
           VideoPixelFormat,
           const gfx::Size&,
           const gfx::Rect&,

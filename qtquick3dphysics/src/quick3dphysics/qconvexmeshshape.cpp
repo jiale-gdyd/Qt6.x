@@ -18,7 +18,7 @@
 #include <QtQml/qqmlcontext.h>
 
 #include <QtQuick3DUtils/private/qssgmesh_p.h>
-#include "qdynamicsworld_p.h"
+#include "qphysicsworld_p.h"
 #include "qphysicsmeshutils_p_p.h"
 #include "qphysicsutils_p.h"
 
@@ -29,7 +29,7 @@ physx::PxConvexMesh *QQuick3DPhysicsMesh::convexMesh()
     if (m_convexMesh != nullptr)
         return m_convexMesh;
 
-    physx::PxPhysics *thePhysics = QDynamicsWorld::getPhysics();
+    physx::PxPhysics *thePhysics = QPhysicsWorld::getPhysics();
     if (thePhysics == nullptr)
         return nullptr;
 
@@ -69,7 +69,8 @@ physx::PxConvexMesh *QQuick3DPhysicsMesh::convexMesh()
     convexDesc.points.data = convexVerts;
     convexDesc.flags = physx::PxConvexFlag::eCOMPUTE_CONVEX;
 
-    if (QDynamicsWorld::getCooking()->cookConvexMesh(convexDesc, buf, &result)) {
+    const auto cooking = QPhysicsWorld::getCooking();
+    if (cooking && cooking->cookConvexMesh(convexDesc, buf, &result)) {
         auto size = buf.getSize();
         auto *data = buf.getData();
         physx::PxDefaultMemoryInputData input(data, size);
@@ -89,7 +90,7 @@ physx::PxTriangleMesh *QQuick3DPhysicsMesh::triangleMesh()
     if (m_triangleMesh != nullptr)
         return m_triangleMesh;
 
-    physx::PxPhysics *thePhysics = QDynamicsWorld::getPhysics();
+    physx::PxPhysics *thePhysics = QPhysicsWorld::getPhysics();
     if (thePhysics == nullptr)
         return nullptr;
 
@@ -130,7 +131,8 @@ physx::PxTriangleMesh *QQuick3DPhysicsMesh::triangleMesh()
     triangleDesc.triangles.stride = iStride * 3;
     triangleDesc.triangles.data = m_ssgMesh.indexBuffer().data.constData();
 
-    if (QDynamicsWorld::getCooking()->cookTriangleMesh(triangleDesc, buf, &result)) {
+    const auto cooking = QPhysicsWorld::getCooking();
+    if (cooking && cooking->cookTriangleMesh(triangleDesc, buf, &result)) {
         auto size = buf.getSize();
         auto *data = buf.getData();
         physx::PxDefaultMemoryInputData input(data, size);
@@ -162,8 +164,8 @@ void QQuick3DPhysicsMesh::loadSsgMesh()
     }
     qCDebug(lcQuick3dPhysics) << "Loaded SSG mesh from" << m_meshPath << m_ssgMesh.isValid()
                               << "draw" << int(m_ssgMesh.drawMode()) << "wind"
-                              << int(m_ssgMesh.winding()) << "subs" << m_ssgMesh.subsets().size()
-                              << "attrs" << m_ssgMesh.vertexBuffer().entries.size()
+                              << int(m_ssgMesh.winding()) << "subs" << m_ssgMesh.subsets().count()
+                              << "attrs" << m_ssgMesh.vertexBuffer().entries.count()
                               << m_ssgMesh.vertexBuffer().data.size() << "stride"
                               << m_ssgMesh.vertexBuffer().stride << "verts"
                               << m_ssgMesh.vertexBuffer().data.size()
@@ -244,18 +246,26 @@ QHash<QString, QQuick3DPhysicsMesh *> QQuick3DPhysicsMeshManager::meshHash;
 /*!
     \qmltype ConvexMeshShape
     \inherits CollisionShape
-    \inqmlmodule QtQuick3DPhysics
+    \inqmlmodule QtQuick3D.Physics
     \since 6.4
-    \brief Defines a convex shape based on a mesh.
+    \brief A convex collision shape based on a 3D mesh.
 
-    This type defines a convex shape based on a mesh.
+    This type defines a convex shape based on the same 3D mesh file format used by
+    \l [QtQuick3D]{Model::source}{QtQuick3D.Model}. If the mesh is not convex, the convex hull of the
+    mesh will be used.
 
+    \sa {Qt Quick 3D Physics Shapes and Bodies}{Shapes and Bodies overview documentation}, TriangleMeshShape
 */
 
 /*!
-  \qmlproperty url ConvexMeshShape::meshSource
+  \qmlproperty url ConvexMeshShape::source
   This property defines the location of the mesh file used to define the shape. If the
-  mesh is not convex, the convex hull of the mesh will be used.
+  mesh is not convex, the convex hull of the mesh will be used. The maximum number of faces
+  and vertices is 255: If the mesh is more detailed than that, it will be simplified.
+
+  Internally, ConvexMeshShape converts the mesh to an optimized data structure. This conversion
+  can be done in advance. See the \l{Qt Quick 3D Physics Cooking}{cooking overview documentation}
+  for details.
 */
 
 QConvexMeshShape::QConvexMeshShape() = default;
@@ -292,23 +302,23 @@ void QConvexMeshShape::updatePhysXGeometry()
     m_dirtyPhysx = false;
 }
 
-const QUrl &QConvexMeshShape::meshSource() const
+const QUrl &QConvexMeshShape::source() const
 {
     return m_meshSource;
 }
 
-void QConvexMeshShape::setMeshSource(const QUrl &newMeshSource)
+void QConvexMeshShape::setSource(const QUrl &newSource)
 {
-    if (m_meshSource == newMeshSource)
+    if (m_meshSource == newSource)
         return;
-    m_meshSource = newMeshSource;
+    m_meshSource = newSource;
     m_mesh = QQuick3DPhysicsMeshManager::getMesh(m_meshSource, this);
     updatePhysXGeometry();
 
     m_dirtyPhysx = true;
 
     emit needsRebuild(this);
-    emit meshSourceChanged();
+    emit sourceChanged();
 }
 
 QT_END_NAMESPACE

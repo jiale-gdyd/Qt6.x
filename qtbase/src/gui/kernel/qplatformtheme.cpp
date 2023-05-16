@@ -143,6 +143,16 @@ QT_BEGIN_NAMESPACE
 
     \value ButtonPressKeys (QList<Qt::Key>) A list of keys that can be used to press buttons via keyboard input.
 
+    \value SetFocusOnTouchRelease (bool) Whether focus objects (line edits etc) should receive
+           input focus after a touch/mouse release.
+           This enum value has been added in Qt 6.5.
+
+    \value MouseCursorTheme (QString) Name of the mouse cursor theme.
+           This enum value has been added in Qt 6.5.
+
+    \value MouseCursorSize (QSize) Size of the mouse cursor.
+           This enum value has been added in Qt 6.5.
+
     \sa themeHint(), QStyle::pixelMetric()
 */
 
@@ -346,7 +356,7 @@ Q_GUI_EXPORT QPalette qt_fusionPalette()
 {
     auto theme = QGuiApplicationPrivate::platformTheme();
     const bool darkAppearance = theme
-                              ? theme->appearance() == QPlatformTheme::Appearance::Dark
+                              ? theme->colorScheme() == Qt::ColorScheme::Dark
                               : false;
     const QColor windowText = darkAppearance ? QColor(240, 240, 240) : Qt::black;
     const QColor backGround = darkAppearance ? QColor(50, 50, 50) : QColor(239, 239, 239);
@@ -426,9 +436,9 @@ QPlatformDialogHelper *QPlatformTheme::createPlatformDialogHelper(DialogType typ
     return nullptr;
 }
 
-QPlatformTheme::Appearance QPlatformTheme::appearance() const
+Qt::ColorScheme QPlatformTheme::colorScheme() const
 {
-    return Appearance::Unknown;
+    return Qt::ColorScheme::Unknown;
 }
 
 const QPalette *QPlatformTheme::palette(Palette type) const
@@ -507,6 +517,14 @@ QVariant QPlatformTheme::themeHint(ThemeHint hint) const
         return QGuiApplicationPrivate::platformIntegration()->styleHint(QPlatformIntegration::UiEffects);
     case QPlatformTheme::ShowShortcutsInContextMenus:
         return QGuiApplicationPrivate::platformIntegration()->styleHint(QPlatformIntegration::ShowShortcutsInContextMenus);
+    case QPlatformTheme::SetFocusOnTouchRelease:
+        return QGuiApplicationPrivate::platformIntegration()->styleHint(QPlatformIntegration::SetFocusOnTouchRelease);
+    case QPlatformTheme::FlickStartDistance:
+        return QGuiApplicationPrivate::platformIntegration()->styleHint(QPlatformIntegration::FlickStartDistance);
+    case QPlatformTheme::FlickMaximumVelocity:
+        return QGuiApplicationPrivate::platformIntegration()->styleHint(QPlatformIntegration::FlickMaximumVelocity);
+    case QPlatformTheme::FlickDeceleration:
+        return QGuiApplicationPrivate::platformIntegration()->styleHint(QPlatformIntegration::FlickDeceleration);
     default:
         return QPlatformTheme::defaultThemeHint(hint);
     }
@@ -605,6 +623,20 @@ QVariant QPlatformTheme::defaultThemeHint(ThemeHint hint)
         return false;
     case ButtonPressKeys:
         return QVariant::fromValue(QList<Qt::Key>({ Qt::Key_Space, Qt::Key_Select }));
+    case SetFocusOnTouchRelease:
+        return false;
+    case FlickStartDistance:
+        return QVariant(15);
+    case FlickMaximumVelocity:
+        return QVariant(2500);
+    case FlickDeceleration:
+        return QVariant(5000);
+    case MenuBarFocusOnAltPressRelease:
+        return false;
+    case MouseCursorTheme:
+        return QVariant(QString());
+    case MouseCursorSize:
+        return QVariant(QSize(16, 16));
     }
     return QVariant();
 }
@@ -773,21 +805,31 @@ QString QPlatformTheme::defaultStandardButtonText(int button)
 
 QString QPlatformTheme::removeMnemonics(const QString &original)
 {
+    const auto mnemonicInParentheses = [](QStringView text) {
+        /* Format of mnemonics to remove is /\(&[^&]\)/ but accept full-width
+           forms of ( and ) as equivalent, for cross-platform compatibility with
+           MS (and consequent behavior of translators, see QTBUG-110829).
+        */
+        Q_ASSERT(text.size() == 4); // Caller's responsibility.
+        constexpr QChar wideOpen = u'\uff08', wideClose = u'\uff09';
+        if (!text.startsWith(u'(') && !text.startsWith(wideOpen))
+            return false;
+        if (text[1] != u'&' || text[2] == u'&')
+            return false;
+        return text.endsWith(u')') || text.endsWith(wideClose);
+    };
     QString returnText(original.size(), u'\0');
     int finalDest = 0;
     int currPos = 0;
-    int l = original.length();
+    int l = original.size();
     while (l) {
         if (original.at(currPos) == u'&') {
             ++currPos;
             --l;
             if (l == 0)
                 break;
-        } else if (original.at(currPos) == u'(' && l >= 4 &&
-                   original.at(currPos + 1) == u'&' &&
-                   original.at(currPos + 2) != u'&' &&
-                   original.at(currPos + 3) == u')') {
-            /* remove mnemonics its format is "\s*(&X)" */
+        } else if (l >= 4 && mnemonicInParentheses(QStringView{original}.sliced(currPos, 4))) {
+            // Also strip any leading space before the mnemonic:
             int n = 0;
             while (finalDest > n && returnText.at(finalDest - n - 1).isSpace())
                 ++n;
@@ -816,6 +858,11 @@ unsigned QPlatformThemePrivate::currentKeyPlatforms()
         result |= KB_X11;
 #endif
     return result;
+}
+
+QString QPlatformTheme::name() const
+{
+    return d_func()->name;
 }
 
 QT_END_NAMESPACE

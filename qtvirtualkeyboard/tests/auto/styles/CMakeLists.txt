@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from styles.pro.
 
 #####################################################################
@@ -15,8 +18,8 @@ qt_internal_add_test(tst_styles
     SOURCES
         tst_styles.cpp
     DEFINES
-        TESTDATA_DIR=\\\"${CMAKE_CURRENT_SOURCE_DIR}/data\\\"
-    PUBLIC_LIBRARIES
+        TESTDATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+    LIBRARIES
         Qt::Gui
     TESTDATA ${test_data}
 )
@@ -30,7 +33,7 @@ qt_internal_add_test(tst_styles
 #####################################################################
 
 qt_internal_extend_target(tst_styles CONDITION NOT QT_BUILD_SHARED_LIBS
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Svg
 )
 

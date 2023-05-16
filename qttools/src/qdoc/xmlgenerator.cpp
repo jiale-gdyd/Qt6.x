@@ -17,12 +17,11 @@ const QRegularExpression XmlGenerator::m_funcLeftParen(QStringLiteral("^\\S+(\\(
 XmlGenerator::XmlGenerator(FileResolver& file_resolver) : Generator(file_resolver) {}
 
 /*!
-  Do not display \brief for QML/JS types, document and collection nodes
+  Do not display \brief for QML types, document and collection nodes
  */
 bool XmlGenerator::hasBrief(const Node *node)
 {
-    return !(node->isQmlType() || node->isPageNode() || node->isCollectionNode()
-             || node->isJsType());
+    return !(node->isQmlType() || node->isPageNode() || node->isCollectionNode());
 }
 
 /*!
@@ -35,6 +34,27 @@ bool XmlGenerator::isThreeColumnEnumValueTable(const Atom *atom)
         if (atom->type() == Atom::ListItemLeft && !matchAhead(atom, Atom::ListItemRight))
             return true;
         atom = atom->next();
+    }
+    return false;
+}
+
+/*!
+  Determines whether the list atom should be shown with just one column (value).
+ */
+bool XmlGenerator::isOneColumnValueTable(const Atom *atom)
+{
+    if (atom->type() != Atom::ListLeft || atom->string() != ATOM_LIST_VALUE)
+        return false;
+
+    while (atom && atom->type() != Atom::ListTagRight)
+        atom = atom->next();
+
+    if (atom) {
+        if (!matchAhead(atom, Atom::ListItemLeft))
+            return false;
+        if (!atom->next())
+            return false;
+        return matchAhead(atom->next(), Atom::ListItemRight);
     }
     return false;
 }
@@ -100,8 +120,6 @@ Node::NodeType XmlGenerator::typeFromString(const Atom *atom)
     const auto &name = atom->string();
     if (name.startsWith(QLatin1String("qml")))
         return Node::QmlModule;
-    else if (name.startsWith(QLatin1String("js")))
-        return Node::JsModule;
     else if (name.startsWith(QLatin1String("groups")))
         return Node::Group;
     else
@@ -209,19 +227,21 @@ std::pair<QString, QString> XmlGenerator::getTableWidthAttr(const Atom *atom)
  */
 QString XmlGenerator::registerRef(const QString &ref, bool xmlCompliant)
 {
-    QString clean = Generator::cleanRef(ref, xmlCompliant);
+    QString cleanRef = Generator::cleanRef(ref, xmlCompliant);
 
     for (;;) {
-        QString &prevRef = refMap[clean.toLower()];
+        QString &prevRef = refMap[cleanRef.toLower()];
         if (prevRef.isEmpty()) {
+            // This reference has never been met before for this document: register it.
             prevRef = ref;
             break;
         } else if (prevRef == ref) {
+            // This exact same reference was already found. This case typically occurs within refForNode.
             break;
         }
-        clean += QLatin1Char('x');
+        cleanRef += QLatin1Char('x');
     }
-    return clean;
+    return cleanRef;
 }
 
 /*!
@@ -247,15 +267,12 @@ QString XmlGenerator::refForNode(const Node *node)
     case Node::Function: {
         const auto fn = static_cast<const FunctionNode *>(node);
         switch (fn->metaness()) {
-        case FunctionNode::JsSignal:
         case FunctionNode::QmlSignal:
             ref = fn->name() + "-signal";
             break;
-        case FunctionNode::JsSignalHandler:
         case FunctionNode::QmlSignalHandler:
             ref = fn->name() + "-signal-handler";
             break;
-        case FunctionNode::JsMethod:
         case FunctionNode::QmlMethod:
             ref = fn->name() + "-method";
             if (fn->overloadNumber() != 0)
@@ -263,7 +280,7 @@ QString XmlGenerator::refForNode(const Node *node)
             break;
         default:
             if (fn->hasOneAssociatedProperty() && fn->doc().isEmpty()) {
-                return refForNode(fn->firstAssociatedProperty());
+                return refForNode(fn->associatedProperties()[0]);
             } else {
                 ref = fn->name();
                 if (fn->overloadNumber() != 0)
@@ -276,7 +293,6 @@ QString XmlGenerator::refForNode(const Node *node)
         if (!node->isPropertyGroup())
             break;
     } Q_FALLTHROUGH();
-    case Node::JsProperty:
     case Node::QmlProperty:
         if (node->isAttached())
             ref = node->name() + "-attached-prop";
@@ -315,8 +331,7 @@ QString XmlGenerator::linkForNode(const Node *node, const Node *relative)
         return QString();
 
     QString fn = fileName(node);
-    if (node->parent() && (node->parent()->isQmlType() || node->parent()->isJsType())
-        && node->parent()->isAbstract()) {
+    if (node->parent() && node->parent()->isQmlType() && node->parent()->isAbstract()) {
         if (Generator::qmlTypeContext()) {
             if (Generator::qmlTypeContext()->inherits(node->parent())) {
                 fn = fileName(Generator::qmlTypeContext());

@@ -7,13 +7,13 @@ QT_BEGIN_NAMESPACE
 
 /*!
     \qmltype TriggerBody
-    \inherits CollisionNode
-    \inqmlmodule QtQuick3DPhysics
+    \inherits PhysicsNode
+    \inqmlmodule QtQuick3D.Physics
     \since 6.4
-    \brief Base type for a trigger body.
+    \brief Reports when objects enter a given volume.
 
-    This is the base type for a trigger body. A trigger body is a body that does not interact
-    physically but is used to detect when objects intersect.
+    This type defines a trigger body. A trigger body is a body that does not interact
+    physically but is used to detect when objects intersect with its volume.
 */
 
 /*!
@@ -22,18 +22,18 @@ QT_BEGIN_NAMESPACE
 */
 
 /*!
-    \qmlsignal TriggerBody::bodyEntered(CollisionNode *body)
+    \qmlsignal TriggerBody::bodyEntered(PhysicsNode *body)
     This signal is emitted when the trigger body is penetrated by the specified \a body.
 */
 
 /*!
-    \qmlsignal TriggerBody::bodyExited(CollisionNode *body)
+    \qmlsignal TriggerBody::bodyExited(PhysicsNode *body)
     This signal is emitted when the trigger body is no longer penetrated by the specified \a body.
 */
 
 QTriggerBody::QTriggerBody() = default;
 
-void QTriggerBody::registerCollision(QAbstractCollisionNode *collision)
+void QTriggerBody::registerCollision(QAbstractPhysicsNode *collision)
 {
     int size = m_collisions.size();
     m_collisions.insert(collision);
@@ -44,7 +44,7 @@ void QTriggerBody::registerCollision(QAbstractCollisionNode *collision)
     }
 }
 
-void QTriggerBody::deregisterCollision(QAbstractCollisionNode *collision)
+void QTriggerBody::deregisterCollision(QAbstractPhysicsNode *collision)
 {
     int size = m_collisions.size();
     m_collisions.remove(collision);
@@ -57,7 +57,7 @@ void QTriggerBody::deregisterCollision(QAbstractCollisionNode *collision)
 
 int QTriggerBody::collisionCount() const
 {
-    return m_collisions.size();
+    return m_collisions.count();
 }
 
 QT_END_NAMESPACE

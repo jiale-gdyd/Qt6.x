@@ -1,9 +1,14 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #####################################################################
 ## WebView Module:
 #####################################################################
 
 qt_internal_add_module(WebView
     PLUGIN_TYPES webview
+    DEPENDENCIES
+        QtQuick/auto
     SOURCES
         qabstractwebview_p.h
         qnativeviewcontroller_p.h
@@ -30,7 +35,7 @@ if(ANDROID)
         jar/QtAndroidWebView.jar
     )
     set_property(TARGET WebView APPEND PROPERTY QT_ANDROID_LIB_DEPENDENCIES
-        plugins/webview/libplugins_webview_qtwebview_android.so
+        ${INSTALL_PLUGINSDIR}/webview/libplugins_webview_qtwebview_android.so
     )
     set_property(TARGET WebView APPEND PROPERTY QT_ANDROID_PERMISSIONS
         android.permission.ACCESS_FINE_LOCATION

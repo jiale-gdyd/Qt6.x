@@ -102,6 +102,7 @@ QVector3D Q_QUICK3DUTILS_EXPORT inverseRotated(const QQuaternion &q, const QVect
 
 namespace color {
 QVector4D Q_QUICK3DUTILS_EXPORT sRGBToLinear(const QColor &color);
+QColor Q_QUICK3DUTILS_EXPORT sRGBToLinearColor(const QColor &color);
 }
 
 template<typename TDataType>
@@ -222,6 +223,20 @@ private:
     mutable QVector3D m_eulerRot;
     mutable Dirty m_dirty { Dirty::None };
 };
+
+namespace DebugViewHelpers {
+template<typename T>
+inline void ensureDebugObjectName(T *node, QObject *src)
+{
+    if (!node->debugObjectName.isEmpty())
+        return;
+    node->debugObjectName = src->objectName();
+    if (node->debugObjectName.isEmpty())
+        node->debugObjectName = QString::fromLatin1(src->metaObject()->className());
+    if (node->debugObjectName.isEmpty())
+        node->debugObjectName = QString::asprintf("%p", src);
+}
+}
 
 QT_END_NAMESPACE
 

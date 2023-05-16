@@ -78,6 +78,8 @@ installPackages+=(dbus-devel)
 installPackages+=(gstreamer1-plugins-bad-free)
 installPackages+=(gstreamer1-devel)
 installPackages+=(gstreamer1-plugins-base-devel)
+# yasm for QtMultimedia
+installPackages+=(yasm)
 # gtk3 style for QtGui/QStyle
 installPackages+=(gtk3-devel)
 # libusb1 for tqtc-boot2qt/qdb
@@ -86,9 +88,6 @@ installPackages+=(libusbx-devel)
 installPackages+=(speech-dispatcher-devel)
 # Python 2 devel and pip. python-pip requires the EPEL repository to be added
 installPackages+=(python2-devel python2-pip)
-# Python 3 with python-devel, pip and virtualenv
-installPackages+=(python36)
-installPackages+=(python36-devel)
 # WebEngine
 installPackages+=(bison)
 installPackages+=(flex)
@@ -131,6 +130,9 @@ installPackages+=(xcb-util-image-devel)
 installPackages+=(xcb-util-keysyms-devel)
 installPackages+=(xcb-util-wm-devel)
 installPackages+=(xcb-util-renderutil-devel)
+installPackages+=(xcb-util-cursor)
+installPackages+=(xcb-util-cursor-devel)
+
 # ODBC support
 installPackages+=(unixODBC-devel)
 installPackages+=(unixODBC)

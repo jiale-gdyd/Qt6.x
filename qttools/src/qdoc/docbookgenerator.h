@@ -8,7 +8,7 @@
 #include "codemarker.h"
 #include "config.h"
 #include "xmlgenerator.h"
-#include "filesystem/fileresolver.hpp"
+#include "filesystem/fileresolver.h"
 
 #include <QtCore/qhash.h>
 #include <QtCore/qxmlstream.h>
@@ -36,8 +36,6 @@ protected:
     void generatePageNode(PageNode *pn);
     using Generator::generateQmlTypePage;
     void generateQmlTypePage(QmlTypeNode *qcn);
-    using Generator::generateQmlBasicTypePage;
-    void generateQmlBasicTypePage(QmlValueTypeNode *qbtn);
     using Generator::generateCollectionNode;
     void generateCollectionNode(CollectionNode *cn);
     using Generator::generateGenericCollectionPage;
@@ -55,6 +53,7 @@ protected:
     void generateSortedNames(const ClassNode *cn, const QList<RelatedClass> &rc);
     void generateSortedQmlNames(const Node *base, const NodeList &subs);
     bool generateStatus(const Node *node);
+    void generateGroupReferenceText(const Node *node);
     bool generateThreadSafeness(const Node *node);
     bool generateSince(const Node *node);
     void generateAddendum(const Node *node, Generator::Addendum type, CodeMarker *marker,
@@ -74,17 +73,17 @@ private:
     void endDocument();
 
     void generateAnnotatedList(const Node *relative, const NodeList &nodeList,
-                               const QString &selector);
+                               const QString &selector, bool withSectionIfNeeded = false);
     void generateAnnotatedLists(const Node *relative, const NodeMultiMap &nmm,
                                 const QString &selector);
-    void generateCompactList(ListType listType, const Node *relative, const NodeMultiMap &nmm,
+    void generateCompactList(const Node *relative, const NodeMultiMap &nmm, bool includeAlphabet,
                              const QString &commonPrefix, const QString &selector);
     using Generator::generateFileList;
     void generateFileList(const ExampleNode *en, bool images);
     void generateObsoleteMembers(const Sections &sections);
     void generateObsoleteQmlMembers(const Sections &sections);
     void generateSectionList(const Section &section, const Node *relative,
-                             Section::Status status = Section::Active);
+                             bool useObsoleteMembers = false);
     void generateSectionInheritedList(const Section &section, const Node *relative);
     void generateSynopsisName(const Node *node, const Node *relative, bool generateNameLink);
     void generateParameter(const Parameter &parameter, const Node *relative, bool generateExtra,
@@ -100,7 +99,6 @@ private:
     void generateBrief(const Node *node);
     void generateAlsoList(const Node *node) override;
     void generateSignatureList(const NodeList &nodes);
-    void generateMaintainerList(const Aggregate *node) override;
     void generateReimplementsClause(const FunctionNode *fn);
     void generateClassHierarchy(const Node *relative, NodeMultiMap &classMap);
     void generateFunctionIndex(const Node *relative);
@@ -118,6 +116,7 @@ private:
     void endLink();
     void writeXmlId(const QString &id);
     void writeXmlId(const Node *node);
+    inline void writeRawHtml(const QString &rawCode);
     inline void newLine();
     void startSectionBegin(const QString &id = "");
     void startSectionBegin(const Node *node);
@@ -140,6 +139,18 @@ private:
     QStack<int> sectionLevels {};
     QString m_qflagsHref {};
     bool m_inTeletype { false };
+    bool m_hasSection { false };
+    bool m_closeSectionAfterGeneratedList { false };
+    bool m_closeSectionAfterRawTitle { false };
+    bool m_closeFigureWrapper { false };
+    bool m_tableHeaderAlreadyOutput { false };
+    bool m_closeTableRow { false };
+    bool m_closeTableCell { false };
+    std::pair<QString, QString> m_tableWidthAttr {};
+    bool m_inPara { false }; // Ignores nesting of paragraphs (like list items).
+    bool m_inBlockquote { false };
+    unsigned m_inList { 0 }; // Depth in number of nested lists.
+    bool m_rewritingCustomQmlModuleSummary { false };
 
     QString m_project {};
     QString m_projectDescription {};

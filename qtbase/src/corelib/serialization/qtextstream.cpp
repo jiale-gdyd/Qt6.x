@@ -14,6 +14,7 @@ static const int QTEXTSTREAM_BUFFERSIZE = 16384;
 
     \ingroup io
     \ingroup string-processing
+    \ingroup qtserialization
     \reentrant
 
     QTextStream can operate on a QIODevice, a QByteArray or a
@@ -195,6 +196,7 @@ static const int QTEXTSTREAM_BUFFERSIZE = 16384;
 #include "qnumeric.h"
 #include "qvarlengtharray.h"
 #include <private/qdebug_p.h>
+#include <private/qtools_p.h>
 
 #include <locale.h>
 #include "private/qlocale_p.h"
@@ -244,6 +246,7 @@ static const int QTEXTSTREAM_BUFFERSIZE = 16384;
 QT_BEGIN_NAMESPACE
 
 using namespace Qt::StringLiterals;
+using namespace QtMiscUtils;
 
 //-------------------------------------------------------------------
 
@@ -1399,7 +1402,8 @@ QTextStream::RealNumberNotation QTextStream::realNumberNotation() const
 /*!
     Sets the precision of real numbers to \a precision. This value
     describes the number of fraction digits QTextStream should
-    write when generating real numbers.
+    write when generating real numbers (FixedNotation, ScientificNotation), or
+    the maximum number of significant digits (SmartNotation).
 
     The precision cannot be a negative value. The default value is 6.
 
@@ -1418,7 +1422,9 @@ void QTextStream::setRealNumberPrecision(int precision)
 
 /*!
     Returns the current real number precision, or the number of fraction
-    digits QTextStream will write when generating real numbers.
+    digits QTextStream will write when generating real numbers
+    (FixedNotation, ScientificNotation), or the maximum number of significant
+    digits (SmartNotation).
 
     \sa setRealNumberNotation(), realNumberNotation(), numberFlags(), integerBase()
 */
@@ -1682,7 +1688,7 @@ QTextStreamPrivate::NumberParsingStatus QTextStreamPrivate::getNumber(qulonglong
         int ndigits = 0;
         while (getChar(&dig)) {
             int n = dig.toLower().unicode();
-            if (n >= '0' && n <= '7') {
+            if (isOctalDigit(n)) {
                 val *= 8;
                 val += n - '0';
             } else {

@@ -3,7 +3,6 @@
 
 #include "qquick3dviewport_p.h"
 #include "qquick3dsceneenvironment_p.h"
-#include "qquick3dobject_p.h"
 #include "qquick3dscenemanager_p.h"
 #include "qquick3dtexture_p.h"
 #include "qquick3dscenerenderer_p.h"
@@ -16,7 +15,9 @@
 #include "qquick3dprincipledmaterial_p.h"
 #include "qquick3dcustommaterial_p.h"
 #include "qquick3dspecularglossymaterial_p.h"
+
 #include <QtQuick3DRuntimeRender/private/qssgrenderlayer_p.h>
+#include <QtQuick3DRuntimeRender/private/qssglayerrenderdata_p.h>
 
 #include <qsgtextureprovider.h>
 #include <QSGSimpleTextureNode>
@@ -30,6 +31,8 @@
 #include <QtGui/private/qeventpoint_p.h>
 
 #include <QtCore/private/qnumeric_p.h>
+
+#include <optional>
 
 QT_BEGIN_NAMESPACE
 
@@ -59,9 +62,9 @@ struct ViewportTransformHelper : public QQuickDeliveryAgent::Transform
         If it's no longer a "hit" on sceneParentNode, returns the last-good point.
     */
     QPointF map(const QPointF &viewportPoint) override {
-        QSSGOption<QSSGRenderRay> rayResult = renderer->getRayFromViewportPos(viewportPoint * dpr);
-        if (rayResult.hasValue()) {
-            auto pickResult = renderer->syncPickOne(rayResult.getValue(), sceneParentNode);
+        std::optional<QSSGRenderRay> rayResult = renderer->getRayFromViewportPos(viewportPoint * dpr);
+        if (rayResult.has_value()) {
+            auto pickResult = renderer->syncPickOne(rayResult.value(), sceneParentNode);
             auto ret = pickResult.m_localUVCoords.toPointF();
             if (!uvCoordsArePixels) {
                 ret = QPointF(targetItem->x() + ret.x() * targetItem->width(),
@@ -116,9 +119,12 @@ QList<QPointer<QQuickDeliveryAgent>> ViewportTransformHelper::owners;
     set simultaneously, then both scenes will be rendered as if they were sibling
     subtrees in the same scene.
 
-    To control how a scene is rendered, you can set the \l environment property.
-    The type \l SceneEnvironment has a number of visual properties that can be
-    adjusted, such as background color, tone mapping, anti-aliasing and more.
+    To control how a scene is rendered, you can set the \l environment
+    property. The type \l SceneEnvironment has a number of visual properties
+    that can be adjusted, such as background color, tone mapping, anti-aliasing
+    and more. \l ExtendedSceneEnvironment in the \c{QtQuick3D.Helpers} module
+    extends \l SceneEnvironment with even more features, adding common
+    post-processing effects.
 
     In addition, in order for anything to be rendered in the View3D, the scene
     needs a \l Camera. If there is only a single \l Camera in the scene, then
@@ -171,16 +177,15 @@ QQuick3DViewport::~QQuick3DViewport()
     if (auto qw = window())
         disconnect(qw, nullptr, this, nullptr);
 
-    for (const auto &connection : std::as_const(m_connections))
-        disconnect(connection);
     auto sceneManager = QQuick3DObjectPrivate::get(m_sceneRoot)->sceneManager;
-    if (sceneManager)
+    if (sceneManager) {
         sceneManager->setParent(nullptr);
+        if (auto wa = sceneManager->wattached)
+            wa->queueForCleanup(sceneManager);
+    }
 
     delete m_sceneRoot;
     m_sceneRoot = nullptr;
-
-    delete sceneManager;
 
     // m_renderStats is tightly coupled with the render thread, so can't delete while we
     // might still be rendering.
@@ -415,8 +420,10 @@ QQuick3DSceneRenderer *QQuick3DViewport::createRenderer() const
                 rci = new QSSGRenderContextInterface(qw, rhiContext);
                 renderer = new QQuick3DSceneRenderer(rci);
             }
-
-            QObject::connect(qw, &QQuickWindow::afterFrameEnd, this, &QQuick3DViewport::cleanupResources, Qt::DirectConnection);
+            Q_QUICK3D_PROFILE_ASSIGN_ID(this, renderer);
+        } else {
+            qWarning("The Qt Quick scene is using a rendering method that is not based on QRhi and a 3D graphics API. "
+                     "Qt Quick 3D is not functional in such an environment. The View3D item is not going to display anything.");
         }
     }
 
@@ -490,15 +497,6 @@ void QQuick3DViewport::geometryChange(const QRectF &newGeometry, const QRectF &o
 
 QSGNode *QQuick3DViewport::updatePaintNode(QSGNode *node, QQuickItem::UpdatePaintNodeData *)
 {
-    // ### Maybe don't check this every time, only when the window changes
-    QSGRendererInterface *rif = window()->rendererInterface();
-    const bool isRhi = QSGRendererInterface::isApiRhiBased(rif->graphicsApi());
-    if (!isRhi) {
-        // We only support using the RHI API, so bail out gracefully
-        // ### maybe return a node tree that displays a warning that this isn't supported
-        return nullptr;
-    }
-
     // When changing render modes
     if (m_renderModeDirty) {
         if (node) {
@@ -527,6 +525,8 @@ QSGNode *QQuick3DViewport::updatePaintNode(QSGNode *node, QQuickItem::UpdatePain
         if (!n->renderer) {
             n->window = window();
             n->renderer = createRenderer();
+            if (!n->renderer)
+                return nullptr;
             n->renderer->fboNode = n;
             n->quickFbo = this;
             connect(window(), SIGNAL(screenChanged(QScreen*)), n, SLOT(handleScreenChange()));
@@ -567,6 +567,8 @@ QSGNode *QQuick3DViewport::updatePaintNode(QSGNode *node, QQuickItem::UpdatePain
         if (!n->renderer) {
             n->window = window();
             n->renderer = createRenderer();
+            if (!n->renderer)
+                return nullptr;
         }
 
         const QSize targetSize = window()->effectiveDevicePixelRatio() * QSize(width(), height());
@@ -596,6 +598,7 @@ void QQuick3DViewport::itemChange(QQuickItem::ItemChange change, const QQuickIte
             QQuick3DObjectPrivate::get(m_sceneRoot)->sceneManager->setWindow(value.window);
             if (m_importScene)
                 QQuick3DObjectPrivate::get(m_importScene)->sceneManager->setWindow(value.window);
+            m_renderStats->setWindow(value.window);
         }
     } else if (change == ItemVisibleHasChanged && isVisible()) {
         update();
@@ -610,16 +613,25 @@ bool QQuick3DViewport::event(QEvent *event)
         return QQuickItem::event(event);
 }
 
+void QQuick3DViewport::componentComplete()
+{
+    QQuickItem::componentComplete();
+    Q_QUICK3D_PROFILE_REGISTER(this);
+}
+
 void QQuick3DViewport::setCamera(QQuick3DCamera *camera)
 {
     if (m_camera == camera)
         return;
 
+    if (camera && !camera->parentItem())
+        camera->setParentItem(m_sceneRoot);
+    if (camera)
+        camera->updateGlobalVariables(QRect(0, 0, width(), height()));
+
+    QQuick3DObjectPrivate::attachWatcherPriv(m_sceneRoot, this, &QQuick3DViewport::setCamera, camera, m_camera);
+
     m_camera = camera;
-    if (m_camera && !m_camera->parentItem())
-        m_camera->setParentItem(m_sceneRoot);
-    if (m_camera)
-        m_camera->updateGlobalVariables(QRect(0, 0, width(), height()));
     emit cameraChanged();
     update();
 }
@@ -798,11 +810,11 @@ QQuick3DPickResult QQuick3DViewport::pick(float x, float y) const
 
     const QPointF position(qreal(x) * window()->effectiveDevicePixelRatio(),
                            qreal(y) * window()->effectiveDevicePixelRatio());
-    QSSGOption<QSSGRenderRay> rayResult = renderer->getRayFromViewportPos(position);
-    if (!rayResult.hasValue())
+    std::optional<QSSGRenderRay> rayResult = renderer->getRayFromViewportPos(position);
+    if (!rayResult.has_value())
         return QQuick3DPickResult();
 
-    return processPickResult(renderer->syncPick(rayResult.getValue()));
+    return processPickResult(renderer->syncPick(rayResult.value()));
 
 }
 
@@ -826,11 +838,11 @@ QList<QQuick3DPickResult> QQuick3DViewport::pickAll(float x, float y) const
 
     const QPointF position(qreal(x) * window()->effectiveDevicePixelRatio(),
                            qreal(y) * window()->effectiveDevicePixelRatio());
-    QSSGOption<QSSGRenderRay> rayResult = renderer->getRayFromViewportPos(position);
-    if (!rayResult.hasValue())
+    std::optional<QSSGRenderRay> rayResult = renderer->getRayFromViewportPos(position);
+    if (!rayResult.has_value())
         return QList<QQuick3DPickResult>();
 
-    const auto resultList = renderer->syncPickAll(rayResult.getValue());
+    const auto resultList = renderer->syncPickAll(rayResult.value());
     QList<QQuick3DPickResult> processedResultList;
     processedResultList.reserve(resultList.size());
     for (const auto &result : resultList)
@@ -901,6 +913,27 @@ void QQuick3DViewport::processPointerEventFromRay(const QVector3D &origin, const
     internalPick(event, origin, direction);
 }
 
+QQuick3DLightmapBaker *QQuick3DViewport::maybeLightmapBaker()
+{
+    return m_lightmapBaker;
+}
+
+QQuick3DLightmapBaker *QQuick3DViewport::lightmapBaker()
+{
+    if (!m_lightmapBaker)
+        m_lightmapBaker= new QQuick3DLightmapBaker(this);
+
+    return m_lightmapBaker;
+}
+
+/*!
+    \internal
+*/
+void QQuick3DViewport::bakeLightmap()
+{
+    lightmapBaker()->bake();
+}
+
 void QQuick3DViewport::setGlobalPickingEnabled(bool isEnabled)
 {
     QQuick3DSceneRenderer *renderer = getRenderer();
@@ -913,25 +946,6 @@ void QQuick3DViewport::setGlobalPickingEnabled(bool isEnabled)
 void QQuick3DViewport::invalidateSceneGraph()
 {
     m_node = nullptr;
-}
-
-void QQuick3DViewport::cleanupResources()
-{
-    // Pass the scene managers list of resouces marked for
-    // removal to the render context for deleation
-    // The render contect will take ownership of the nodes
-    // and clear the list
-    if (auto renderer = getRenderer()) {
-        const auto &rci = renderer->m_sgContext;
-        if (m_sceneRoot) {
-            const auto sceneManager = QQuick3DObjectPrivate::get(m_sceneRoot)->sceneManager;
-            rci->cleanupResources(sceneManager->resourceCleanupQueue);
-        }
-        if (m_importScene) {
-            const auto importSceneManager = QQuick3DObjectPrivate::get(m_importScene)->sceneManager;
-            rci->cleanupResources(importSceneManager->resourceCleanupQueue);
-        }
-    }
 }
 
 QQuick3DSceneRenderer *QQuick3DViewport::getRenderer() const
@@ -975,7 +989,10 @@ void QQuick3DViewport::setupDirectRenderer(RenderMode mode)
     auto renderMode = (mode == Underlay) ? QQuick3DSGDirectRenderer::Underlay
                                          : QQuick3DSGDirectRenderer::Overlay;
     if (!m_directRenderer) {
-        m_directRenderer = new QQuick3DSGDirectRenderer(createRenderer(), window(), renderMode);
+        QQuick3DSceneRenderer *sceneRenderer = createRenderer();
+        if (!sceneRenderer)
+            return;
+        m_directRenderer = new QQuick3DSGDirectRenderer(sceneRenderer, window(), renderMode);
         connect(window(), &QQuickWindow::sceneGraphInvalidated, this, &QQuick3DViewport::cleanupDirectRenderer, Qt::DirectConnection);
     }
 
@@ -1026,9 +1043,9 @@ bool QQuick3DViewport::internalPick(QPointerEvent *event, const QVector3D &origi
             pickResults = renderer->syncPickAll(ray);
         } else {
             const QPointF realPosition = eventPoint.position() * window()->effectiveDevicePixelRatio();
-            QSSGOption<QSSGRenderRay> rayResult = renderer->getRayFromViewportPos(realPosition);
-            if (rayResult.hasValue())
-                pickResults = renderer->syncPickAll(rayResult.getValue());
+            std::optional<QSSGRenderRay> rayResult = renderer->getRayFromViewportPos(realPosition);
+            if (rayResult.has_value())
+                pickResults = renderer->syncPickAll(rayResult.value());
         }
         if (!isHover)
             qCDebug(lcPick) << pickResults.size() << "pick results for" << event->point(pointIndex);
@@ -1244,7 +1261,8 @@ QQuick3DPickResult QQuick3DViewport::processPickResult(const QSSGRenderPickResul
                               pickResult.m_localUVCoords,
                               pickResult.m_scenePosition,
                               pickResult.m_localPosition,
-                              pickResult.m_faceNormal);
+                              pickResult.m_faceNormal,
+                              pickResult.m_instanceIndex);
 }
 
 // Returns the first found scene manager of objects children

@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from qshadernodes.pro.
 
 #####################################################################
@@ -9,7 +12,7 @@ qt_internal_add_test(tst_qt3d_qshadernodes
 # special case end
     SOURCES
         tst_qshadernodes.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::3DRenderPrivate
         Qt::Gui
 )

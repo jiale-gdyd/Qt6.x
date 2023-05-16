@@ -628,7 +628,7 @@ void QQuickTextPrivate::elideFormats(
     }
 }
 
-QString QQuickTextPrivate::elidedText(qreal lineWidth, const QTextLine &line, QTextLine *nextLine) const
+QString QQuickTextPrivate::elidedText(qreal lineWidth, const QTextLine &line, const QTextLine *nextLine) const
 {
     if (nextLine) {
         return layout.engine()->elidedText(
@@ -792,8 +792,10 @@ QRectF QQuickTextPrivate::setupTextLayout(qreal *const baseline)
         br = QRectF();
 
         QRectF unelidedRect;
-        QTextLine line = layout.createLine();
+        QTextLine line;
         for (visibleCount = 1; ; ++visibleCount) {
+            line = layout.createLine();
+
             if (noBreakLastLine && visibleCount == maxLineCount)
                 layout.engine()->option.setWrapMode(QTextOption::WrapAnywhere);
             if (customLayout) {
@@ -819,7 +821,7 @@ QRectF QQuickTextPrivate::setupTextLayout(qreal *const baseline)
 
                 visibleCount -= 1;
 
-                QTextLine previousLine = layout.lineAt(visibleCount - 1);
+                const QTextLine previousLine = layout.lineAt(visibleCount - 1);
                 elideText = layoutText.at(line.textStart() - 1) != QChar::LineSeparator
                         ? elidedText(line.width(), previousLine, &line)
                         : elidedText(line.width(), previousLine);
@@ -830,10 +832,9 @@ QRectF QQuickTextPrivate::setupTextLayout(qreal *const baseline)
                 break;
             }
 
-            const QTextLine previousLine = line;
-            line = layout.createLine();
-            if (!line.isValid()) {
-                if (singlelineElide && visibleCount == 1 && previousLine.naturalTextWidth() > previousLine.width()) {
+            const bool isLastLine = line.textStart() + line.textLength() >= layoutText.size();
+            if (isLastLine) {
+                if (singlelineElide && visibleCount == 1 && line.naturalTextWidth() > line.width()) {
                     // Elide a single previousLine of text if its width exceeds the element width.
                     elide = true;
                     widthExceeded = true;
@@ -843,26 +844,25 @@ QRectF QQuickTextPrivate::setupTextLayout(qreal *const baseline)
                     truncated = true;
                     elideText = layout.engine()->elidedText(
                             Qt::TextElideMode(elideMode),
-                            QFixed::fromReal(previousLine.width()),
+                            QFixed::fromReal(line.width()),
                             0,
-                            previousLine.textStart(),
-                            previousLine.textLength());
-                    elideStart = previousLine.textStart();
-                    elideEnd = elideStart + previousLine.textLength();
+                            line.textStart(),
+                            line.textLength());
+                    elideStart = line.textStart();
+                    elideEnd = elideStart + line.textLength();
                 } else {
                     br = unelidedRect;
                     height = naturalHeight;
                 }
                 break;
             } else {
-                const bool wrappedLine = layoutText.at(line.textStart() - 1) != QChar::LineSeparator;
+                const bool wrappedLine = layoutText.at(line.textStart() + line.textLength() - 1) != QChar::LineSeparator;
                 wrapped |= wrappedLine;
 
                 if (!wrappedLine)
                     ++unwrappedLineCount;
 
-                // Stop if the maximum number of lines has been reached and elide the last line
-                // if enabled.
+                // Stop if the maximum number of lines has been reached
                 if (visibleCount == maxLineCount) {
                     truncated = true;
                     heightExceeded |= wrapped;
@@ -871,10 +871,12 @@ QRectF QQuickTextPrivate::setupTextLayout(qreal *const baseline)
                         elide = true;
                         if (eos != -1)  // There's an abbreviated string available
                             break;
+
+                        const QTextLine nextLine = layout.createLine();
                         elideText = wrappedLine
-                                ? elidedText(previousLine.width(), previousLine, &line)
-                                : elidedText(previousLine.width(), previousLine);
-                        elideStart = previousLine.textStart();
+                                ? elidedText(line.width(), line, &nextLine)
+                                : elidedText(line.width(), line);
+                        elideStart = line.textStart();
                         // elideEnd isn't required for right eliding.
                     } else {
                         br = unelidedRect;
@@ -1272,6 +1274,23 @@ void QQuickTextPrivate::ensureDoc()
         qmlobject_connect(extra->doc, QQuickTextDocumentWithImageResources, SIGNAL(imagesLoaded()),
                           q, QQuickText, SLOT(q_updateLayout()));
     }
+}
+
+void QQuickTextPrivate::updateDocumentText()
+{
+    ensureDoc();
+#if QT_CONFIG(textmarkdownreader)
+    if (markdownText)
+        extra->doc->setMarkdown(text);
+    else
+#endif
+#if QT_CONFIG(texthtmlparser)
+        extra->doc->setHtml(text);
+#else
+        extra->doc->setPlainText(text);
+#endif
+    extra->doc->clearResources();
+    rightToLeftText = extra->doc->toPlainText().isRightToLeft();
 }
 
 /*!
@@ -1704,14 +1723,7 @@ void QQuickText::setText(const QString &n)
     d->text = n;
     if (isComponentComplete()) {
         if (d->richText) {
-            d->ensureDoc();
-#if QT_CONFIG(textmarkdownreader)
-            if (d->markdownText)
-                d->extra->doc->setMarkdownText(n);
-            else
-#endif
-                d->extra->doc->setText(n);
-            d->rightToLeftText = d->extra->doc->toPlainText().isRightToLeft();
+            d->updateDocumentText();
         } else {
             d->clearFormats();
             d->rightToLeftText = d->text.isRightToLeft();
@@ -2194,9 +2206,7 @@ void QQuickText::setTextFormat(TextFormat format)
 
     if (isComponentComplete()) {
         if (!wasRich && d->richText) {
-            d->ensureDoc();
-            d->extra->doc->setText(d->text);
-            d->rightToLeftText = d->extra->doc->toPlainText().isRightToLeft();
+            d->updateDocumentText();
         } else {
             d->clearFormats();
             d->rightToLeftText = d->text.isRightToLeft();
@@ -2758,14 +2768,7 @@ void QQuickText::componentComplete()
     Q_D(QQuickText);
     if (d->updateOnComponentComplete) {
         if (d->richText) {
-            d->ensureDoc();
-#if QT_CONFIG(textmarkdownreader)
-            if (d->markdownText)
-                d->extra->doc->setMarkdownText(d->text);
-            else
-#endif
-                d->extra->doc->setText(d->text);
-            d->rightToLeftText = d->extra->doc->toPlainText().isRightToLeft();
+            d->updateDocumentText();
         } else {
             d->rightToLeftText = d->text.isRightToLeft();
         }

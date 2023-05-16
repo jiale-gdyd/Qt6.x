@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #####################################################################
 ## TestCanBusPlugin Plugin:
 #####################################################################
@@ -10,7 +13,7 @@ qt_internal_add_plugin(TestCanBusPlugin
     SOURCES
         testcanbackend.cpp testcanbackend.h
         main.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Core
         Qt::Network
         Qt::SerialBus

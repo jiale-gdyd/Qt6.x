@@ -1,4 +1,5 @@
-# Generated from platformsupport.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 add_subdirectory(devicediscovery)
 add_subdirectory(fbconvenience)
@@ -8,4 +9,3 @@ endif()
 # if(QT_FEATURE_kms)
 #     add_subdirectory(kmsconvenience)
 # endif()
-add_subdirectory(kmsconvenience)

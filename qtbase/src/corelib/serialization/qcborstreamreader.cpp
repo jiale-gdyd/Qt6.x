@@ -36,13 +36,11 @@ QT_WARNING_POP
 
 static CborError _cbor_value_dup_string(const CborValue *, void **, size_t *, CborValue *)
 {
-    Q_UNREACHABLE();
-    return CborErrorInternalError;
+    Q_UNREACHABLE_RETURN(CborErrorInternalError);
 }
 [[maybe_unused]] static CborError cbor_value_get_half_float_as_float(const CborValue *, float *)
 {
-    Q_UNREACHABLE();
-    return CborErrorInternalError;
+    Q_UNREACHABLE_RETURN(CborErrorInternalError);
 }
 
 // confirm our constants match TinyCBOR's
@@ -62,6 +60,7 @@ static_assert(int(QCborStreamReader::Invalid) == CborInvalidType);
    \class QCborStreamReader
    \inmodule QtCore
    \ingroup cbor
+   \ingroup qtserialization
    \reentrant
    \since 5.12
 

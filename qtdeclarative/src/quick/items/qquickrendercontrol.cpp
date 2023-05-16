@@ -165,8 +165,12 @@ QQuickRenderControl::~QQuickRenderControl()
 
     invalidate();
 
-    if (d->window)
-        QQuickWindowPrivate::get(d->window)->renderControl = nullptr;
+    QQuickGraphicsConfiguration config;
+    if (d->window) {
+        QQuickWindowPrivate *wd = QQuickWindowPrivate::get(d->window);
+        wd->renderControl = nullptr;
+        config = wd->graphicsConfig;
+    }
 
     // It is likely that the cleanup in windowDestroyed() is not called since
     // the standard pattern is to destroy the rendercontrol before the QQuickWindow.
@@ -180,7 +184,7 @@ QQuickRenderControl::~QQuickRenderControl()
     // using the rendercontrol without ever calling initialize() - it is then
     // important to completely skip calling any QSGRhiSupport functions.
     if (d->rhi)
-        d->resetRhi();
+        d->resetRhi(config);
 }
 
 void QQuickRenderControlPrivate::windowDestroyed()
@@ -192,9 +196,11 @@ void QQuickRenderControlPrivate::windowDestroyed()
         rc->invalidate();
 
         QQuickWindowPrivate::get(window)->animationController.reset();
+
 #if QT_CONFIG(quick_shadereffect)
-        QSGRhiShaderEffectNode::cleanupMaterialTypeCache(window);
+        QSGRhiShaderEffectNode::resetMaterialTypeCache(window);
 #endif
+
         window = nullptr;
     }
 }
@@ -321,7 +327,7 @@ void QQuickRenderControl::polishItems()
         return;
 
     QQuickWindowPrivate *cd = QQuickWindowPrivate::get(d->window);
-    cd->flushFrameSynchronousEvents();
+    cd->deliveryAgentPrivate()->flushFrameSynchronousEvents(d->window);
     if (!d->window)
         return;
     cd->polishItems();
@@ -425,7 +431,7 @@ void QQuickRenderControl::render()
         cd->setCustomCommandBuffer(d->cb);
     }
 
-    cd->renderSceneGraph(d->window->size());
+    cd->renderSceneGraph();
 }
 
 /*!
@@ -509,7 +515,7 @@ void QQuickRenderControlPrivate::maybeUpdate()
   Reimplemented in subclasses to return the real window this render control
   is rendering into.
 
-  If \a offset in non-null, it is set to the offset of the control
+  If \a offset is non-null, it is set to the offset of the control
   inside the window.
 
   \note While not mandatory, reimplementing this function becomes essential for
@@ -521,7 +527,7 @@ void QQuickRenderControlPrivate::maybeUpdate()
 /*!
   Returns the real window that \a win is being rendered to, if any.
 
-  If \a offset in non-null, it is set to the offset of the rendering
+  If \a offset is non-null, it is set to the offset of the rendering
   inside its window.
 
  */
@@ -685,10 +691,10 @@ bool QQuickRenderControlPrivate::initRhi()
     return true;
 }
 
-void QQuickRenderControlPrivate::resetRhi()
+void QQuickRenderControlPrivate::resetRhi(const QQuickGraphicsConfiguration &config)
 {
     if (ownRhi)
-        QSGRhiSupport::instance()->destroyRhi(rhi);
+        QSGRhiSupport::instance()->destroyRhi(rhi, config);
 
     rhi = nullptr;
 

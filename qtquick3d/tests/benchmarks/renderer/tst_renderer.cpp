@@ -1,5 +1,5 @@
-// Copyright (C) 2020 The Qt Company Ltd.
-// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only
+// Copyright (C) 2022 The Qt Company Ltd.
+// SPDX-License-Identifier: LicenseRef-Qt-Commercial OR BSD-3-Clause
 
 #include <QtTest>
 
@@ -7,6 +7,8 @@
 
 #include <QtQuick3DRuntimeRender/private/qssgrenderer_p.h>
 #include <QtQuick3DRuntimeRender/private/qssgrendernode_p.h>
+#include <QtQuick3DRuntimeRender/private/qssgrendercontextcore_p.h>
+#include <QtQuick3DRuntimeRender/private/qssgrenderbuffermanager_p.h>
 #include <QtQuick3D/private/qquick3dscenemanager_p.h>
 
 class tst_renderer : public QObject
@@ -28,7 +30,7 @@ private:
 
     QString meshPath;
     int modelCount = 0;
-    QSSGRenderCamera camera;
+    QSSGRenderCamera camera{ QSSGRenderCamera::Type::OrthographicCamera };
     QSSGRenderLayer layer;
 };
 
@@ -50,8 +52,7 @@ void tst_renderer::initTestCase()
 
     auto shaderCache = new QSSGShaderCache(rhiContext);
     renderContext = QSSGRef<QSSGRenderContextInterface>(new QSSGRenderContextInterface(rhiContext,
-                                                                                       new QSSGBufferManager(rhiContext, shaderCache),
-                                                                                       new QSSGResourceManager(rhiContext),
+                                                                                       new QSSGBufferManager,
                                                                                        new QSSGRenderer,
                                                                                        new QSSGShaderLibraryManager,
                                                                                        shaderCache,
@@ -73,9 +74,8 @@ void tst_renderer::initTestCase()
     const float spacing = 20.0f;
     const float offset = -spacing * float(n) * 0.5f;
 
-    layer.activeCamera = &camera;
+    layer.explicitCamera = &camera;
 
-    renderContext->setWindowDimensions(QSize(800,600));
     const auto viewport = QRect(QPoint(), QSize(800,600));
     renderContext->setViewport(viewport);
     renderContext->setScissorRect(viewport);
@@ -87,10 +87,9 @@ void tst_renderer::initTestCase()
                 // Set-up model
                 QSSGRenderModel *model = new QSSGRenderModel;
                 model->meshPath = QSSGRenderPath("#Cube");
-                model->scale = QVector3D(0.1f, 0.1f, 0.1f);
-                model->position = QVector3D((float(x) + offset) * spacing,
-                                            (float(y) + offset) * spacing,
-                                            (float(z) + offset) * spacing);
+                model->localTransform.translate(QVector3D((float(x) + offset) * spacing,
+                                                          (float(y) + offset) * spacing,
+                                                          (float(z) + offset) * spacing));
 
                 // Set-up material
                 QSSGRenderDefaultMaterial *mat = new QSSGRenderDefaultMaterial;
@@ -109,9 +108,9 @@ void tst_renderer::bench_prep()
 {
     QVERIFY(!layer.children.isEmpty());
     QBENCHMARK {
-        renderContext->beginFrame();
+        renderContext->beginFrame(&layer);
         renderContext->prepareLayerForRender(layer);
-        renderContext->endFrame();
+        renderContext->endFrame(&layer);
     }
 }
 

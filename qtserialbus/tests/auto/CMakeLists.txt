@@ -1,6 +1,14 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 add_subdirectory(cmake)
 add_subdirectory(qcanbusframe)
 add_subdirectory(qcanbusdevice)
+add_subdirectory(qcandbcfileparser)
+add_subdirectory(qcanframeprocessor)
+add_subdirectory(qcanmessagedescription)
+add_subdirectory(qcansignaldescription)
+add_subdirectory(qcanuniqueiddescription)
 add_subdirectory(qmodbusdataunit)
 add_subdirectory(qmodbusreply)
 add_subdirectory(qmodbusdevice)

@@ -41,6 +41,7 @@
             \li \l{Specifying a custom toolchain file}
         \endlist
         \li \l{Imported targets}
+        \li \l{Qt CMake policies}
         \li \l{Qt 5 and Qt 6 compatibility}
         \list
             \li \l{Versionless targets}
@@ -54,6 +55,8 @@
             \li \l{cmake-commands-qtdbus}{Qt6::DBus}
             \li \l{cmake-commands-qtinterfaceframework}{Qt6::InterfaceFramework}
             \li \l{cmake-commands-qtlinguisttools}{Qt6::LinguistTools}
+            \li \l{cmake-commands-qtprotobuf}{Qt6::Protobuf}
+            \li \l{cmake-commands-qtgrpc}{Qt6::Grpc}
             \li \l{cmake-commands-qtqml}{Qt6::Qml}
             \li \l{cmake-macros-qtremoteobjects}{Qt6::RemoteObjects}
             \li \l{cmake-macros-qtscxml}{Qt6::Scxml}
@@ -103,12 +106,14 @@
     Here is a typical \c{CMakeLists.txt} file for a console application written
     in C++ using Qt:
 
-    \quotefile snippets/cmake/helloworld_qtcore.cmake
+    \quotefromfile snippets/cmake/helloworld_qtcore.cmake
+    \skipto cmake_minimum_required
+    \printuntil
 
     Let's go through the content.
 
     \quotefromfile snippets/cmake/helloworld_qtcore.cmake
-
+    \skipto cmake_minimum_required
     \printuntil cmake_minimum_required
 
     \c cmake_minimum_required() specifies the minimum CMake version that the
@@ -198,7 +203,9 @@
 
     This is the full project file:
 
-    \quotefile snippets/cmake/helloworld_qtwidgets.cmake
+    \quotefromfile snippets/cmake/helloworld_qtwidgets.cmake
+    \skipto cmake_minimum_required
+    \printuntil
 
     Let's walk through the changes we have made.
 
@@ -268,7 +275,19 @@
     The top-level \c{CMakeLists.txt} contains the overall project setup,
     \c{find_package} and \c{add_subdirectory} calls:
 
-    \quotefile snippets/cmake/helloworld_subdirs.cmake
+    \code
+    cmake_minimum_required(VERSION 3.16)
+
+    project(helloworld VERSION 1.0.0 LANGUAGES CXX)
+
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+    find_package(Qt6 REQUIRED COMPONENTS Widgets)
+    qt_standard_project_setup()
+
+    add_subdirectory(src/app)
+    \endcode
 
     Variables that are set in this file are visible in subdirectory project
     files.
@@ -276,7 +295,20 @@
     The application's project file \c{src/app/CMakeLists.txt} contains the
     executable target:
 
-    \quotefile snippets/cmake/helloworld_src_app.cmake
+    \code
+    add_executable(helloworld
+        mainwindow.ui
+        mainwindow.cpp
+        main.cpp
+    )
+
+    target_link_libraries(helloworld PRIVATE Qt6::Widgets)
+
+    set_target_properties(helloworld PROPERTIES
+        WIN32_EXECUTABLE ON
+        MACOSX_BUNDLE ON
+    )
+    \endcode
 
     Such a structure will make it easy to add more targets to the project such
     as libraries or unit tests.
@@ -311,12 +343,15 @@
 
     Let's have a look at the library's project file (\c{src/businesslogic/CMakeLists.txt}).
 
-    \quotefile snippets/cmake/helloworld_src_businesslogic.cmake
+    \quotefromfile snippets/cmake/helloworld_src_businesslogic.cmake
+    \skipto add_library
+    \printuntil
 
     Let's go through the content.
 
     \quotefromfile snippets/cmake/helloworld_src_businesslogic.cmake
-    \printuntil )
+    \skipto add_library
+    \printto target_link_libraries
 
     The
     \l{https://cmake.org/cmake/help/latest/command/add_library.html}{add_library}
@@ -350,14 +385,22 @@
 
     Last, we must add the library's subdirectory to the top-level project file:
 
-    \quotefile snippets/cmake/helloworld_subdirs2.cmake
+    \code
+    add_subdirectory(src/app)
+    add_subdirectory(src/businesslogic)
+    \endcode
 
     \section2 Using libraries
 
     To use the library we created in the \l{Building libraries}{previous
     section}, we instruct CMake to link against it:
 
-    \quotefile snippets/cmake/helloworld_src_app2.cmake
+    \code
+    target_link_libraries(helloworld PRIVATE
+        businesslogic
+        Qt6::Widgets
+    )
+    \endcode
 
     This ensures that \c{businesslogic.h} is found when main.cpp is compiled.
     Furthermore, the businesslogic static library will become a part of the \c
@@ -373,7 +416,12 @@
     We want to display some images in our application, so we add them using the
     \l{The Qt Resource System}{Qt Resource System}.
 
-    \quotefile snippets/cmake/helloworld_resources.cmake
+    \code
+    qt_add_resources(helloworld imageresources
+        PREFIX "/images"
+        FILES logo.png splashscreen.png
+    )
+    \endcode
 
     The \l{qt_add_resources} command automatically creates a Qt resource
     containing the referenced images. From the C++ source code, you can access
@@ -398,7 +446,10 @@
     The following example adds a German and a French translation file to the
     \c{helloworld} target:
 
-    \quotefile snippets/cmake/helloworld_translations.cmake
+    \code
+    qt_add_translations(helloworld
+        TS_FILES helloworld_de.ts helloworld_fr.ts)
+    \endcode
 
     This creates build system rules to automatically generate \c{.qm} files from
     the \c{.ts} files. By default, the \c{.qm} files are embedded into a
@@ -450,22 +501,27 @@
     to create a QML application that uses the \l{Qt Quick} module.
 
     This is the full project file:
-    \quotefile snippets/cmake/helloworld_qtqml.cmake
+    \quotefromfile snippets/cmake/helloworld_qtqml.cmake
+    \skipto cmake_minimum_required
+    \printuntil
 
     Let's walk through the changes we have made.
-    We specify \l {Building a C++ GUI application}{CMAKE_AUTOMOC},
-    \l{Building a C++ console application}{CMAKE_CXX_STANDARD},
-    and CMAKE_CXX_STANDARD_REQUIRED.
-
-    \quotefromfile snippets/cmake/helloworld_qtqml.cmake
-    \skipto CMAKE_AUTOMOC
-    \printuntil CMAKE_CXX_STANDARD_REQUIRED
-
     In the \c{find_package} call, we replace \c{Core} with \c{Quick}. This
     will locate the \c{Qt6Quick} module and provide the \c{Qt6::Quick}
     targets we later link against.
 
+    \quotefromfile snippets/cmake/helloworld_qtqml.cmake
+    \skipto find_package(
     \printuntil find_package(
+
+    We call \l {qt6_standard_project_setup}{qt_standard_project_setup},
+    and specify \l{Building a C++ console application}{CMAKE_CXX_STANDARD},
+    and \c{CMAKE_CXX_STANDARD_REQUIRED}.
+    By passing \c {REQUIRED 6.5} to \c {qt_standard_project_setup}, we opt-in
+    to useful defaults for \l{qt6_add_qml_module}{qt_add_qml_module}.
+
+    \printuntil CMAKE_CXX_STANDARD_REQUIRED
+
 
     Note that the application will still link against \c{Qt6::Core}, because
     \c{Qt6::Quick} depends on it.
@@ -476,14 +532,13 @@
 
     \l {qt_add_qml_module} passes the target of the executable, a URI, module
     version, and a list of QML files to ensure that myapp becomes a
-    QML module. Among other things, this places the QML files into
-    \c { qrc:/${URI} } in the resource file system.
+    QML module. This places the QML files into
+    \c { qrc:/qt/qml/${URI} } in the resource file system.
+    Moreover, \c qt_add_qml_module ensures that \c qmlcachegen runs.
+    Additionally, it creates a \c myapp_qmllint target, which runs \c qmllint on
+    the files in QML_FILES.
 
     \printuntil )
-
-    First, \c qt_add_qml_module ensures that \c qmlcachegen runs. Second, it
-    creates a \c myapp_qmllint target, which runs \c qmllint on the files in
-    QML_FILES.
 
     By adding the referenced resources, they get automatically added to
     the application under the same root path as the QML files – also in the
@@ -518,8 +573,25 @@
             ├── mytype.h
     \endcode
 
-    The toplevel \c CMakeLists.txt file does some basic setup, and then uses
-    \c add_subdirectory to include the one in mylib. The subdirectory structure
+    The toplevel \c CMakeLists.txt file does some basic setup using
+    \l{qt6_standard_project_setup}{qt_standard_project_setup}, and then uses
+    \c add_subdirectory to include the one in mylib:
+
+    \code
+    cmake_minimum_required(VERSION 3.16)
+
+    project(qmlmodule VERSION 1.0.0 LANGUAGES CXX)
+
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+    find_package(Qt6 REQUIRED COMPONENTS Qml)
+    qt_standard_project_setup(REQUIRED 6.5)
+
+    add_subdirectory(example/mylib)
+    \endcode
+
+    The subdirectory structure
     corresponds to the QML module’s URI, but with the dots replaced by
     slashes. That’s the same logic the engine uses when it searches for a
     module in the \l{Import Statements}{import paths}. \c mytype.h declares a
@@ -529,10 +601,16 @@
     In the subdirectory’s \c CMakeLists.txt we again call \c qt6_add_qml_module.
     However, the invocation is slightly different:
 
-    \quotefromfile snippets/cmake/helloworld_subdirs_qml.cmake
-    \printuntil mytype.h
-    \skipto )
-    \printuntil )
+    \code
+    qt6_add_qml_module(mylib
+        URI example.mylib
+        VERSION 1.0
+        SOURCES
+            mytype.h mytype.cpp
+        QML_FILES
+            Mistake.qml
+    )
+    \endcode
 
     To add C++ types, the SOURCES parameter needs to be specified. The target for
     mylib is not created. Therefore, if the target passed to \c qt6_add_qml_module
@@ -572,7 +650,16 @@
 
     and adjust the \c qt6_add_qml_module call:
 
-    \quotefile snippets/cmake/helloworld_subdirs_qml.cmake
+    \code
+    qt6_add_qml_module(mylib
+        URI example.mylib
+        VERSION 1.0
+        SOURCES
+            mytype.h mytype.cpp
+        QML_FILES
+            Mistake.qml
+    )
+    \endcode
 
     As mentioned, we made a mistake because \c answer is actually a read-only
     property. This illustrates \c qmllint integration: CMake
@@ -708,7 +795,7 @@
     \page cmake-imported-targets.html
     \title Imported targets
     \brief Provides an overview of the CMake targets imported by Qt.
-    \nextpage Qt 5 and Qt 6 compatibility
+    \nextpage Qt CMake policies
     \previouspage Building projects on the command line
 
     Each Qt module that is loaded defines a CMake library target. The target names
@@ -734,11 +821,30 @@
     \snippet snippets/cmake/examples.cmake 2
 */
 
+/*!
+    \page qt-cmake-policies.html
+    \title Qt CMake policies
+    \target qt_cmake_policies
+    \brief Provides a list of available Qt CMake policies.
+    \previouspage Imported targets
+    \nextpage Qt 5 and Qt 6 compatibility
+
+    Qt CMake policies maintain the backward compatibility
+    across multiple releases. Every new policy starts by warning you about a
+    deprecated feature or behavior; followed by a warning message that briefly
+    describes the change. To disable a policy's warning, explicitly
+    request the \c NEW or non-backward compatible behavior of a policy
+    using the \l{qt_policy}{qt_policy()} command.
+
+    \section1 Policies
+
+    \annotatedlist qt-cmake-policies
+*/
 
 /*!
     \page cmake-qt5-and-qt6-compatibility.html
     \title Qt 5 and Qt 6 compatibility
-    \previouspage Imported targets
+    \previouspage Qt CMake policies
     \nextpage CMake Command Reference
 
     The semantics of the CMake API in Qt 5 and Qt 6 are largely compatible. However, up to Qt 5.14,
@@ -953,6 +1059,10 @@
 
     \annotatedlist cmake-source-file-properties-qtcore
 
+    \section2 Global Properties
+
+    \annotatedlist cmake-global-properties-qtcore
+
     \section1 Qt6::DBus
     \target cmake-properties-qtdbus
 
@@ -966,6 +1076,10 @@
     \section2 Source File Properties
 
     \annotatedlist cmake-source-file-properties-qtqml
+
+    \section2 Global Properties
+
+    \annotatedlist cmake-global-properties-qtqml
 */
 
 /*!
@@ -995,6 +1109,16 @@
 
     \annotatedlist cmake-commands-qtlinguisttools
 
+    \section2 Qt6::Protobuf
+    \target cmake-commands-qtprotobuf
+
+    \annotatedlist cmake-commands-qtprotobuf
+
+    \section2 Qt6::Grpc
+    \target cmake-commands-qtgrpc
+
+    \annotatedlist cmake-commands-qtgrpc
+
     \section2 Qt6::Qml
     \target cmake-commands-qtqml
 
@@ -1009,6 +1133,11 @@
     \target cmake-macros-qtscxml
 
     \annotatedlist cmake-macros-qtscxml
+
+    \section2 Qt6::ShaderTools
+    \target cmake-commands-qtshadertools
+
+    \annotatedlist cmake-commands-qtshadertools
 
     \section2 Qt6::Widgets
     \target cmake-macros-qtwidgets

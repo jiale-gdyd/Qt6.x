@@ -15,12 +15,11 @@
 // We mean it.
 //
 
-#include "qqml.h"
-#include "qqmlproperty.h"
-#include "qqmlproperty_p.h"
+#include <QtQml/private/qqmlproperty_p.h>
 
 #include <private/qqmlnullablevalue_p.h>
 #include <private/qmetatype_p.h>
+#include <private/qv4referenceobject_p.h>
 
 #include <QtCore/qobject.h>
 #include <QtCore/qrect.h>
@@ -34,18 +33,20 @@ QT_BEGIN_NAMESPACE
 class Q_QML_PRIVATE_EXPORT QQmlValueType : public QDynamicMetaObjectData
 {
 public:
-    QQmlValueType() : metaType(QMetaType::UnknownType) {}
-    QQmlValueType(QMetaType type, const QMetaObject *metaObject);
+    QQmlValueType() = default;
+    QQmlValueType(QMetaType type, const QMetaObject *staticMetaObject)
+        : m_metaType(type), m_staticMetaObject(staticMetaObject)
+    {}
     ~QQmlValueType();
 
-    void *create() const { return metaType.create(); }
-    void destroy(void *gadgetPtr) const { metaType.destroy(gadgetPtr); }
+    void *create() const { return m_metaType.create(); }
+    void destroy(void *gadgetPtr) const { m_metaType.destroy(gadgetPtr); }
 
-    void construct(void *gadgetPtr, const void *copy) const { metaType.construct(gadgetPtr, copy); }
-    void destruct(void *gadgetPtr) const { metaType.destruct(gadgetPtr); }
+    void construct(void *gadgetPtr, const void *copy) const { m_metaType.construct(gadgetPtr, copy); }
+    void destruct(void *gadgetPtr) const { m_metaType.destruct(gadgetPtr); }
 
-    int metaTypeId() const { return metaType.id(); }
-    const QMetaObject *metaObject() const { return dynamicMetaObject; }
+    QMetaType metaType() const { return m_metaType; }
+    const QMetaObject *staticMetaObject() const { return m_staticMetaObject; }
 
     // ---- dynamic meta object data interface
     QMetaObject *toDynamicMetaObject(QObject *) override;
@@ -53,9 +54,10 @@ public:
     int metaCall(QObject *obj, QMetaObject::Call type, int _id, void **argv) override;
     // ----
 
-public:
-    QMetaType metaType;
-    QMetaObject *dynamicMetaObject = nullptr;
+private:
+    QMetaType m_metaType;
+    const QMetaObject *m_staticMetaObject = nullptr;
+    QMetaObject *m_dynamicMetaObject = nullptr;
 };
 
 class Q_QML_PRIVATE_EXPORT QQmlGadgetPtrWrapper : public QObject
@@ -64,18 +66,23 @@ class Q_QML_PRIVATE_EXPORT QQmlGadgetPtrWrapper : public QObject
 public:
     static QQmlGadgetPtrWrapper *instance(QQmlEngine *engine, QMetaType type);
 
-    QQmlGadgetPtrWrapper(QQmlValueType *valueType, QObject *parent);
+    QQmlGadgetPtrWrapper(QQmlValueType *valueType, QObject *parent = nullptr);
     ~QQmlGadgetPtrWrapper();
 
     void read(QObject *obj, int idx);
-    void write(QObject *obj, int idx, QQmlPropertyData::WriteFlags flags);
-    QVariant value();
+    void write(QObject *obj, int idx, QQmlPropertyData::WriteFlags flags,
+               int internalIndex = QV4::ReferenceObject::AllProperties) const;
+    QVariant value() const;
     void setValue(const QVariant &value);
 
-    int metaTypeId() const { return valueType()->metaTypeId(); }
+    QMetaType metaType() const { return valueType()->metaType(); }
     int metaCall(QMetaObject::Call type, int id, void **argv);
 
-    QMetaProperty property(int index) { return valueType()->metaObject()->property(index); }
+    QMetaProperty property(int index) const
+    {
+        return valueType()->staticMetaObject()->property(index);
+    }
+
     QVariant readOnGadget(const QMetaProperty &property) const
     {
         return property.readOnGadget(m_gadgetPtr);
@@ -88,7 +95,6 @@ public:
 
 private:
     const QQmlValueType *valueType() const;
-
     void *m_gadgetPtr = nullptr;
 };
 
@@ -102,8 +108,11 @@ struct Q_QML_PRIVATE_EXPORT QQmlPointFValueType
     QML_FOREIGN(QPointF)
     QML_ADDED_IN_VERSION(2, 0)
     QML_EXTENDED(QQmlPointFValueType)
+    QML_STRUCTURED_VALUE
 
 public:
+    QQmlPointFValueType() = default;
+    Q_INVOKABLE QQmlPointFValueType(const QPoint &point) : v(point) {}
     Q_INVOKABLE QString toString() const;
     qreal x() const;
     qreal y() const;
@@ -121,6 +130,7 @@ struct Q_QML_PRIVATE_EXPORT QQmlPointValueType
     QML_FOREIGN(QPoint)
     QML_ADDED_IN_VERSION(2, 0)
     QML_EXTENDED(QQmlPointValueType)
+    QML_STRUCTURED_VALUE
 
 public:
     Q_INVOKABLE QString toString() const;
@@ -140,8 +150,11 @@ struct Q_QML_PRIVATE_EXPORT QQmlSizeFValueType
     QML_FOREIGN(QSizeF)
     QML_ADDED_IN_VERSION(2, 0)
     QML_EXTENDED(QQmlSizeFValueType)
+    QML_STRUCTURED_VALUE
 
 public:
+    QQmlSizeFValueType() = default;
+    Q_INVOKABLE QQmlSizeFValueType(const QSize &size) : v(size) {}
     Q_INVOKABLE QString toString() const;
     qreal width() const;
     qreal height() const;
@@ -159,6 +172,7 @@ struct Q_QML_PRIVATE_EXPORT QQmlSizeValueType
     QML_FOREIGN(QSize)
     QML_ADDED_IN_VERSION(2, 0)
     QML_EXTENDED(QQmlSizeValueType)
+    QML_STRUCTURED_VALUE
 
 public:
     Q_INVOKABLE QString toString() const;
@@ -184,8 +198,11 @@ struct Q_QML_PRIVATE_EXPORT QQmlRectFValueType
     QML_FOREIGN(QRectF)
     QML_ADDED_IN_VERSION(2, 0)
     QML_EXTENDED(QQmlRectFValueType)
+    QML_STRUCTURED_VALUE
 
 public:
+    QQmlRectFValueType() = default;
+    Q_INVOKABLE QQmlRectFValueType(const QRect &rect) : v(rect) {}
     Q_INVOKABLE QString toString() const;
     qreal x() const;
     qreal y() const;
@@ -219,6 +236,7 @@ struct Q_QML_PRIVATE_EXPORT QQmlRectValueType
     QML_FOREIGN(QRect)
     QML_ADDED_IN_VERSION(2, 0)
     QML_EXTENDED(QQmlRectValueType)
+    QML_STRUCTURED_VALUE
 
 public:
     Q_INVOKABLE QString toString() const;
@@ -284,6 +302,7 @@ struct Q_QML_PRIVATE_EXPORT QQmlEasingValueType
     QML_FOREIGN(QEasingCurve)
     QML_ADDED_IN_VERSION(2, 0)
     QML_EXTENDED(QQmlEasingValueType)
+    QML_STRUCTURED_VALUE
 
     Q_PROPERTY(QQmlEasingEnums::Type type READ type WRITE setType FINAL)
     Q_PROPERTY(qreal amplitude READ amplitude WRITE setAmplitude FINAL)

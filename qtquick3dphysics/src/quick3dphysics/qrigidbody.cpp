@@ -3,31 +3,35 @@
 
 #include "qrigidbody_p.h"
 #include "qphysicscommands_p.h"
-#include "qdynamicsworld_p.h"
+#include "qphysicsworld_p.h"
 
 QT_BEGIN_NAMESPACE
 
 /*!
     \qmltype DynamicRigidBody
-    \inqmlmodule QtQuick3DPhysics
+    \inqmlmodule QtQuick3D.Physics
     \inherits PhysicsBody
     \since 6.4
-    \brief Dynamic rigid body.
+    \brief A physical body that can move or be moved.
 
-    This is the dynamic rigid body. A dynamic rigid body is an object that is part of the physics
-    scene and behaves like a physical object with mass and velocity. Note that triangle mesh,
-    heightfield and plane geometry shapes are only allowed as collision shapes when \l isKinematic
-    is \c true.
+    This type defines a dynamic rigid body: an object that is part of the physics
+    scene and behaves like a physical object with mass and velocity.
+
+    \note \l{TriangleMeshShape}{triangle mesh}, \l{HeightFieldShape}{height field} and
+    \l{PlaneShape}{plane} geometry shapes are not allowed as collision shapes when
+    \l isKinematic is \c false.
 */
 
 /*!
     \qmlproperty float DynamicRigidBody::mass
 
     This property defines the mass of the body. Note that this is only used when massMode is not
-    \c {DynamicRigidBody.Density}. Also note that a value of 0 is interpreted as infinite mass
-    and that negative numbers are not allowed.
+    \c {DynamicRigidBody.CustomDensity} or \c {DynamicRigidBody.DefaultDensity}. Also note that
+    a value of 0 is interpreted as infinite mass and that negative numbers are not allowed.
 
     Default value is \c 1.
+
+    Range: \c{[0, inf]}
 
     \sa massMode
 */
@@ -36,51 +40,54 @@ QT_BEGIN_NAMESPACE
     \qmlproperty float DynamicRigidBody::density
 
     This property defines the density of the body. This is only used when massMode is set to \c
-    {DynamicRigidBody.Density}. When this property is less than or equal to zero, this body will
-    use the \l {DynamicsWorld::}{defaultDensity} value.
+    {DynamicRigidBody.CustomDensity}.
 
-    Default value is \c -1.
+    Default value is \c{0.001}.
+
+    Range: \c{(0, inf]}
     \sa massMode
 */
 
 /*!
-    \qmlproperty vector3d DynamicRigidBody::linearVelocity
-    This property defines the linear velocity of the body.
+    \qmlproperty AxisLock DynamicRigidBody::linearAxisLock
+
+    This property locks the linear velocity of the body along the axes defined by the
+    DynamicRigidBody.AxisLock enum. To lock several axes just bitwise-or their enum values.
+
+    Available options:
+
+    \value  DynamicRigidBody.None
+            No axis lock (default value).
+
+    \value  DynamicRigidBody.LockX
+            Lock X axis.
+
+    \value  DynamicRigidBody.LockY
+            Lock Y axis.
+
+    \value  DynamicRigidBody.LockZ
+            Lock Z axis.
 */
 
 /*!
-    \qmlproperty vector3d DynamicRigidBody::angularVelocity
-    This property defines the angular velocity of the body.
-*/
+    \qmlproperty AxisLock DynamicRigidBody::angularAxisLock
 
-/*!
-    \qmlproperty bool DynamicRigidBody::axisLockLinearX
-    This property locks the linear velocity of the body along the X-axis.
-*/
+    This property locks the angular velocity of the body along the axes defined by the
+    DynamicRigidBody.AxisLock enum. To lock several axes just bitwise-or their enum values.
 
-/*!
-    \qmlproperty bool DynamicRigidBody::axisLockLinearY
-    This property locks the linear velocity of the body along the Y-axis.
-*/
+    Available options:
 
-/*!
-    \qmlproperty bool DynamicRigidBody::axisLockLinearZ
-    This property locks the linear velocity of the body along the Z-axis.
-*/
+    \value  DynamicRigidBody.None
+            No axis lock (default value).
 
-/*!
-    \qmlproperty bool DynamicRigidBody::axisLockAngularX
-    This property locks the angular velocity of the body along the X-axis.
-*/
+    \value  DynamicRigidBody.LockX
+            Lock X axis.
 
-/*!
-    \qmlproperty bool DynamicRigidBody::axisLockAngularY
-    This property locks the angular velocity of the body along the Y-axis.
-*/
+    \value  DynamicRigidBody.LockY
+            Lock Y axis.
 
-/*!
-    \qmlproperty bool DynamicRigidBody::axisLockAngularZ
-    This property locks the angular velocity of the body along the Z-axis.
+    \value  DynamicRigidBody.LockZ
+            Lock Z axis.
 */
 
 /*!
@@ -88,7 +95,10 @@ QT_BEGIN_NAMESPACE
     This property defines whether the object is kinematic or not. A kinematic object does not get
     influenced by external forces and can be seen as an object of infinite mass. If this property is
     set then in every simulation frame the physical object will be moved to its target position
-    regardless of external forces.
+    regardless of external forces. Note that to move and rotate the kinematic object you need to use
+    the kinematicPosition, kinematicRotation, kinematicEulerRotation and kinematicPivot properties.
+
+    \sa kinematicPosition, kinematicRotation, kinematicEulerRotation, kinematicPivot
 */
 
 /*!
@@ -101,14 +111,17 @@ QT_BEGIN_NAMESPACE
 
     This property holds the enum which describes how mass and inertia are calculated for this body.
 
-    By default, \c DynamicRigidBody.Density is used.
+    By default, \c DynamicRigidBody.DefaultDensity is used.
 
     Available options:
 
-    \value  DynamicRigidBody.Density
-            Use the specified density to calculate mass and inertia assuming a uniform density.
-            If density is non-positive then the \l {DynamicsWorld::}{defaultDensity} property in
-            DynamicsWorld is used.
+    \value  DynamicRigidBody.DefaultDensity
+            Use the density specified in the \l {PhysicsWorld::}{defaultDensity} property in
+            PhysicsWorld to calculate mass and inertia assuming a uniform density.
+
+    \value  DynamicRigidBody.CustomDensity
+            Use specified density in the specified in the \l {DynamicRigidBody::}{density} to
+            calculate mass and inertia assuming a uniform density.
 
     \value  DynamicRigidBody.Mass
             Use the specified mass to calculate inertia assuming a uniform density.
@@ -169,6 +182,50 @@ QT_BEGIN_NAMESPACE
 */
 
 /*!
+    \qmlproperty vector3d DynamicRigidBody::kinematicPosition
+    \since 6.5
+
+    Defines the position of the object when it is kinematic, i.e. when \l isKinematic is set to \c
+    true. On each iteration of the simulation the physical object will be updated according to this
+    value.
+
+    \sa isKinematic, kinematicRotation, kinematicEulerRotation, kinematicPivot
+*/
+
+/*!
+    \qmlproperty vector3d DynamicRigidBody::kinematicRotation
+    \since 6.5
+
+    Defines the rotation of the object when it is kinematic, i.e. when \l isKinematic is set to \c
+    true. On each iteration of the simulation the physical object will be updated according to this
+    value.
+
+    \sa isKinematic, kinematicPosition, kinematicEulerRotation, kinematicPivot
+*/
+
+/*!
+    \qmlproperty vector4d DynamicRigidBody::kinematicEulerRotation
+    \since 6.5
+
+    Defines the euler rotation of the object when it is kinematic, i.e. when \l isKinematic is set to \c
+    true. On each iteration of the simulation the physical object will be updated according to this
+    value.
+
+    \sa isKinematic, kinematicPosition, kinematicEulerRotation, kinematicPivot
+*/
+
+/*!
+    \qmlproperty vector3d DynamicRigidBody::kinematicPivot
+    \since 6.5
+
+    Defines the pivot of the object when it is kinematic, i.e. when \l isKinematic is set to \c
+    true. On each iteration of the simulation the physical object will be updated according to this
+    value.
+
+    \sa isKinematic, kinematicPosition, kinematicEulerRotation, kinematicRotation
+*/
+
+/*!
     \qmlmethod DynamicRigidBody::applyCentralForce(vector3d force)
 
     Applies  a \a force on the center of the body.
@@ -202,6 +259,18 @@ QT_BEGIN_NAMESPACE
     \qmlmethod DynamicRigidBody::applyTorqueImpulse(vector3d impulse)
 
     Applies a torque \a impulse on the body.
+*/
+
+/*!
+    \qmlmethod DynamicRigidBody::setAngularVelocity(vector3d angularVelocity)
+
+    Sets the \a angularVelocity of the body.
+*/
+
+/*!
+    \qmlmethod DynamicRigidBody::setLinearVelocity(vector3d linearVelocity)
+
+    Sets the \a linearVelocity of the body.
 */
 
 /*!
@@ -255,7 +324,8 @@ void QDynamicRigidBody::setCenterOfMassPosition(const QVector3D &newCenterOfMass
         m_commandQueue.enqueue(new QPhysicsCommandSetMassAndInertiaMatrix(m_mass, m_inertiaMatrix));
         break;
     }
-    case MassMode::Density:
+    case MassMode::DefaultDensity:
+    case MassMode::CustomDensity:
     case MassMode::Mass:
         break;
     }
@@ -275,10 +345,17 @@ void QDynamicRigidBody::setMassMode(const MassMode newMassMode)
         return;
 
     switch (newMassMode) {
-    case MassMode::Density: {
-        const float density =
-                m_density < 0.f ? QDynamicsWorld::getWorld()->defaultDensity() : m_density;
-        m_commandQueue.enqueue(new QPhysicsCommandSetDensity(density));
+    case MassMode::DefaultDensity: {
+        auto world = QPhysicsWorld::getWorld(this);
+        if (world) {
+            m_commandQueue.enqueue(new QPhysicsCommandSetDensity(world->defaultDensity()));
+        } else {
+            qWarning() << "No physics world found, cannot set default density.";
+        }
+        break;
+    }
+    case MassMode::CustomDensity: {
+        m_commandQueue.enqueue(new QPhysicsCommandSetDensity(m_density));
         break;
     }
     case MassMode::Mass: {
@@ -323,10 +400,10 @@ const QList<float> &QDynamicRigidBody::readInertiaMatrix() const
 
 static bool fuzzyEquals(const QList<float> &a, const QList<float> &b)
 {
-    if (a.size() != b.size())
+    if (a.length() != b.length())
         return false;
 
-    const int length = a.size();
+    const int length = a.length();
     for (int i = 0; i < length; i++)
         if (!qFuzzyCompare(a[i], b[i]))
             return false;
@@ -340,7 +417,7 @@ void QDynamicRigidBody::setInertiaMatrix(const QList<float> &newInertiaMatrix)
         return;
 
     m_inertiaMatrixList = newInertiaMatrix;
-    const int elemsToCopy = qMin(m_inertiaMatrixList.size(), 9);
+    const int elemsToCopy = qMin(m_inertiaMatrixList.length(), 9);
     memcpy(m_inertiaMatrix.data(), m_inertiaMatrixList.data(), elemsToCopy * sizeof(float));
     memset(m_inertiaMatrix.data() + elemsToCopy, 0, (9 - elemsToCopy) * sizeof(float));
 
@@ -358,11 +435,6 @@ const QMatrix3x3 &QDynamicRigidBody::inertiaMatrix() const
 float QDynamicRigidBody::mass() const
 {
     return m_mass;
-}
-
-QVector3D QDynamicRigidBody::linearVelocity() const
-{
-    return m_linearVelocity;
 }
 
 bool QDynamicRigidBody::isKinematic() const
@@ -390,7 +462,8 @@ void QDynamicRigidBody::setMass(float mass)
     case QDynamicRigidBody::MassMode::MassAndInertiaMatrix:
         m_commandQueue.enqueue(new QPhysicsCommandSetMassAndInertiaMatrix(mass, m_inertiaMatrix));
         break;
-    case QDynamicRigidBody::MassMode::Density:
+    case QDynamicRigidBody::MassMode::DefaultDensity:
+    case QDynamicRigidBody::MassMode::CustomDensity:
         break;
     }
 
@@ -408,21 +481,11 @@ void QDynamicRigidBody::setDensity(float density)
     if (qFuzzyCompare(m_density, density))
         return;
 
-    if (m_massMode == MassMode::Density && m_density > 0.f)
+    if (m_massMode == MassMode::CustomDensity)
         m_commandQueue.enqueue(new QPhysicsCommandSetDensity(density));
 
     m_density = density;
     emit densityChanged(m_density);
-}
-
-void QDynamicRigidBody::setLinearVelocity(QVector3D linearVelocity)
-{
-    if (m_linearVelocity == linearVelocity)
-        return;
-
-    m_linearVelocity = linearVelocity;
-    m_commandQueue.enqueue(new QPhysicsCommandSetLinearVelocity(m_linearVelocity));
-    emit linearVelocityChanged(m_linearVelocity);
 }
 
 void QDynamicRigidBody::setIsKinematic(bool isKinematic)
@@ -451,96 +514,35 @@ void QDynamicRigidBody::setGravityEnabled(bool gravityEnabled)
     emit gravityEnabledChanged();
 }
 
-const QVector3D &QDynamicRigidBody::angularVelocity() const
+void QDynamicRigidBody::setAngularVelocity(const QVector3D &angularVelocity)
 {
-    return m_angularVelocity;
+    m_commandQueue.enqueue(new QPhysicsCommandSetAngularVelocity(angularVelocity));
 }
 
-void QDynamicRigidBody::setAngularVelocity(const QVector3D &newAngularVelocity)
+QDynamicRigidBody::AxisLock QDynamicRigidBody::linearAxisLock() const
 {
-    if (m_angularVelocity == newAngularVelocity)
+    return m_linearAxisLock;
+}
+
+void QDynamicRigidBody::setLinearAxisLock(AxisLock newAxisLockLinear)
+{
+    if (m_linearAxisLock == newAxisLockLinear)
         return;
-    m_angularVelocity = newAngularVelocity;
-    m_commandQueue.enqueue(new QPhysicsCommandSetAngularVelocity(m_angularVelocity));
-    emit angularVelocityChanged();
+    m_linearAxisLock = newAxisLockLinear;
+    emit linearAxisLockChanged();
 }
 
-bool QDynamicRigidBody::axisLockLinearX() const
+QDynamicRigidBody::AxisLock QDynamicRigidBody::angularAxisLock() const
 {
-    return m_axisLockLinearX;
+    return m_angularAxisLock;
 }
 
-void QDynamicRigidBody::setAxisLockLinearX(bool newAxisLockLinearX)
+void QDynamicRigidBody::setAngularAxisLock(AxisLock newAxisLockAngular)
 {
-    if (m_axisLockLinearX == newAxisLockLinearX)
+    if (m_angularAxisLock == newAxisLockAngular)
         return;
-    m_axisLockLinearX = newAxisLockLinearX;
-    emit axisLockLinearXChanged();
-}
-
-bool QDynamicRigidBody::axisLockLinearY() const
-{
-    return m_axisLockLinearY;
-}
-
-void QDynamicRigidBody::setAxisLockLinearY(bool newAxisLockLinearY)
-{
-    if (m_axisLockLinearY == newAxisLockLinearY)
-        return;
-    m_axisLockLinearY = newAxisLockLinearY;
-    emit axisLockLinearYChanged();
-}
-
-bool QDynamicRigidBody::axisLockLinearZ() const
-{
-    return m_axisLockLinearZ;
-}
-
-void QDynamicRigidBody::setAxisLockLinearZ(bool newAxisLockLinearZ)
-{
-    if (m_axisLockLinearZ == newAxisLockLinearZ)
-        return;
-    m_axisLockLinearZ = newAxisLockLinearZ;
-    emit axisLockLinearZChanged();
-}
-
-bool QDynamicRigidBody::axisLockAngularX() const
-{
-    return m_axisLockAngularX;
-}
-
-void QDynamicRigidBody::setAxisLockAngularX(bool newAxisLockAngularX)
-{
-    if (m_axisLockAngularX == newAxisLockAngularX)
-        return;
-    m_axisLockAngularX = newAxisLockAngularX;
-    emit axisLockAngularXChanged();
-}
-
-bool QDynamicRigidBody::axisLockAngularY() const
-{
-    return m_axisLockAngularY;
-}
-
-void QDynamicRigidBody::setAxisLockAngularY(bool newAxisLockAngularY)
-{
-    if (m_axisLockAngularY == newAxisLockAngularY)
-        return;
-    m_axisLockAngularY = newAxisLockAngularY;
-    emit axisLockAngularYChanged();
-}
-
-bool QDynamicRigidBody::axisLockAngularZ() const
-{
-    return m_axisLockAngularZ;
-}
-
-void QDynamicRigidBody::setAxisLockAngularZ(bool newAxisLockAngularZ)
-{
-    if (m_axisLockAngularZ == newAxisLockAngularZ)
-        return;
-    m_axisLockAngularZ = newAxisLockAngularZ;
-    emit axisLockAngularZChanged();
+    m_angularAxisLock = newAxisLockAngular;
+    emit angularAxisLockChanged();
 }
 
 QQueue<QPhysicsCommand *> &QDynamicRigidBody::commandQueue()
@@ -550,7 +552,7 @@ QQueue<QPhysicsCommand *> &QDynamicRigidBody::commandQueue()
 
 void QDynamicRigidBody::updateDefaultDensity(float defaultDensity)
 {
-    if (m_massMode == MassMode::Density && m_density <= 0.f)
+    if (m_massMode == MassMode::DefaultDensity)
         m_commandQueue.enqueue(new QPhysicsCommandSetDensity(defaultDensity));
 }
 
@@ -584,20 +586,80 @@ void QDynamicRigidBody::applyTorqueImpulse(const QVector3D &impulse)
     m_commandQueue.enqueue(new QPhysicsCommandApplyTorqueImpulse(impulse));
 }
 
+void QDynamicRigidBody::setLinearVelocity(const QVector3D &linearVelocity)
+{
+    m_commandQueue.enqueue(new QPhysicsCommandSetLinearVelocity(linearVelocity));
+}
+
 void QDynamicRigidBody::reset(const QVector3D &position, const QVector3D &eulerRotation)
 {
     m_commandQueue.enqueue(new QPhysicsCommandReset(position, eulerRotation));
 }
 
+void QDynamicRigidBody::setKinematicRotation(const QQuaternion &rotation)
+{
+    if (m_kinematicRotation == rotation)
+        return;
+
+    m_kinematicRotation = rotation;
+    emit kinematicRotationChanged(m_kinematicRotation);
+    emit kinematicEulerRotationChanged(m_kinematicRotation.getEulerRotation());
+}
+
+QQuaternion QDynamicRigidBody::kinematicRotation() const
+{
+    return m_kinematicRotation.getQuaternionRotation();
+}
+
+void QDynamicRigidBody::setKinematicEulerRotation(const QVector3D &rotation)
+{
+    if (m_kinematicRotation == rotation)
+        return;
+
+    m_kinematicRotation = rotation;
+    emit kinematicEulerRotationChanged(m_kinematicRotation);
+    emit kinematicRotationChanged(m_kinematicRotation.getQuaternionRotation());
+}
+
+QVector3D QDynamicRigidBody::kinematicEulerRotation() const
+{
+    return m_kinematicRotation.getEulerRotation();
+}
+
+void QDynamicRigidBody::setKinematicPivot(const QVector3D &pivot)
+{
+    m_kinematicPivot = pivot;
+    emit kinematicPivotChanged(m_kinematicPivot);
+}
+
+QVector3D QDynamicRigidBody::kinematicPivot() const
+{
+    return m_kinematicPivot;
+}
+
+void QDynamicRigidBody::setKinematicPosition(const QVector3D &position)
+{
+    m_kinematicPosition = position;
+    emit kinematicPositionChanged(m_kinematicPosition);
+}
+
+QVector3D QDynamicRigidBody::kinematicPosition() const
+{
+    return m_kinematicPosition;
+}
+
 /*!
     \qmltype StaticRigidBody
-    \inqmlmodule QtQuick3DPhysics
+    \inqmlmodule QtQuick3D.Physics
     \inherits PhysicsBody
     \since 6.4
-    \brief Static rigid body.
+    \brief A physical body that does not move.
 
-    This is an immovable and static rigid body. It is technically possible to move the body but it
-    will incur a performance penalty. Any collision shape is allowed for this body.
+    The StaticRigidBody type defines an immovable and static rigid body. Any collision shape is allowed for this body.
+
+    \note Do not move a StaticRigidBody. It is technically possible to do so, but it
+    will incur a performance penalty, and colliding dynamic objects may not react correctly.
+    Use a DynamicRigidBody with \l {DynamicRigidBody::isKinematic}{isKinematic} set to \c true instead.
 */
 
 QStaticRigidBody::QStaticRigidBody() = default;

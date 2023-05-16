@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from quick3dnodeinstantiator.pro.
 
 #####################################################################
@@ -16,10 +19,10 @@ qt_internal_add_test(tst_qnodeinstantiator
         stringmodel.h
         tst_quick3dnodeinstantiator.cpp
     DEFINES
-        QT_QMLTEST_DATADIR=\\\"${CMAKE_CURRENT_SOURCE_DIR}/data\\\"
+        QT_QMLTEST_DATADIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
     INCLUDE_DIRECTORIES
         ../../shared
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::3DCore
         Qt::3DQuick
         Qt::3DQuickPrivate

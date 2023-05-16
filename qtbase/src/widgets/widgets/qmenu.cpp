@@ -1387,9 +1387,18 @@ bool QMenuPrivate::mouseEventTaken(QMouseEvent *e)
 void QMenuPrivate::activateCausedStack(const QList<QPointer<QWidget>> &causedStack, QAction *action,
                                        QAction::ActionEvent action_e, bool self)
 {
-    QBoolBlocker guard(activationRecursionGuard);
+    Q_Q(QMenu);
+    // can't use QBoolBlocker here
+    const bool activationRecursionGuardReset = activationRecursionGuard;
+    activationRecursionGuard = true;
+    QPointer<QMenu> guard(q);
     if (self)
         action->activate(action_e);
+    if (!guard)
+        return;
+    auto boolBlocker = qScopeGuard([this, activationRecursionGuardReset]{
+        activationRecursionGuard = activationRecursionGuardReset;
+    });
 
     for(int i = 0; i < causedStack.size(); ++i) {
         QPointer<QWidget> widget = causedStack.at(i);
@@ -1465,9 +1474,10 @@ void QMenuPrivate::activateAction(QAction *action, QAction::ActionEvent action_e
 #endif
     }
 
-
+    QPointer<QMenu> thisGuard(q);
     activateCausedStack(causedStack, action, action_e, self);
-
+    if (!thisGuard)
+        return;
 
     if (action_e == QAction::Hover) {
 #if QT_CONFIG(accessibility)
@@ -2939,7 +2949,7 @@ bool QMenu::event(QEvent *e)
         d->updateLayoutDirection();
         break;
     case QEvent::ShortcutOverride: {
-            QKeyEvent *kev = static_cast<QKeyEvent*>(e);
+            QKeyEvent *kev = static_cast<QKeyEvent *>(e);
             if (kev->key() == Qt::Key_Up || kev->key() == Qt::Key_Down
                 || kev->key() == Qt::Key_Left || kev->key() == Qt::Key_Right
                 || kev->key() == Qt::Key_Enter || kev->key() == Qt::Key_Return
@@ -2953,7 +2963,7 @@ bool QMenu::event(QEvent *e)
         }
         break;
     case QEvent::KeyPress: {
-        QKeyEvent *ke = (QKeyEvent*)e;
+        QKeyEvent *ke = static_cast<QKeyEvent *>(e);
         if (ke->key() == Qt::Key_Tab || ke->key() == Qt::Key_Backtab) {
             keyPressEvent(ke);
             return true;
@@ -3587,7 +3597,7 @@ void QMenu::internalDelayedPopup()
     const QRect actionRect(d->actionRect(d->currentAction));
     QPoint subMenuPos(mapToGlobal(QPoint(actionRect.right() + subMenuOffset + 1, actionRect.top())));
     if (subMenuPos.x() > screen.right())
-        subMenuPos.setX(QCursor::pos().x());
+        subMenuPos.setX(geometry().left());
 
     const auto &subMenuActions = d->activeMenu->actions();
     if (!subMenuActions.isEmpty()) {

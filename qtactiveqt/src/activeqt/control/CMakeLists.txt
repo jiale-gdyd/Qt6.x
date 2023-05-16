@@ -1,10 +1,11 @@
-# Generated from control.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## AxServer Module:
 #####################################################################
 
-qt_internal_add_module(AxServer # special case
+qt_internal_add_module(AxServer
     STATIC
     QMAKE_MODULE_CONFIG idcidl force_import_plugins
     SOURCES
@@ -34,9 +35,9 @@ qt_internal_add_module(AxServer # special case
         shell32
 )
 
-#### Keys ignored in scope 1:.:.:control.pro:<TRUE>:
-# MODULE = "axserver"
-# MODULE_CONFIG = "idcidl" "force_import_plugins"
+set_source_files_properties(qaxservermain.cpp # define main()
+                            qaxmain.cpp
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 ## Scopes:
 #####################################################################

@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 qt_internal_add_module(TextToSpeech
     PLUGIN_TYPES texttospeech
     SOURCES
@@ -35,7 +38,7 @@ if(ANDROID)
         jar/QtAndroidTextToSpeech.jar
     )
     set_property(TARGET TextToSpeech APPEND PROPERTY QT_ANDROID_LIB_DEPENDENCIES
-        plugins/texttospeech/libplugins_texttospeech_qttexttospeech_android.so
+        ${INSTALL_PLUGINSDIR}/texttospeech/libplugins_texttospeech_qttexttospeech_android.so
     )
 endif()
 

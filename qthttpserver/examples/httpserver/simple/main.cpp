@@ -87,6 +87,13 @@ int main(int argc, char *argv[])
         return response;
     });
 
+    //! [Using afterRequest()]
+    httpServer.afterRequest([](QHttpServerResponse &&resp) {
+        resp.setHeader("Server", "Qt HTTP Server");
+        return std::move(resp);
+    });
+    //! [Using afterRequest()]
+
     const auto port = httpServer.listen(QHostAddress::Any);
     if (!port) {
         qDebug() << QCoreApplication::translate("QHttpServerExample",
@@ -127,8 +134,8 @@ int main(int argc, char *argv[])
                         .arg(sslPort);
 #else
     qDebug() << QCoreApplication::translate("QHttpServerExample",
-                                            "Running on http://127.0.0.1:%1/ (Press CTRL+C to quit)")
-                        .arg(port);
+                                            "Running on http://127.0.0.1:%1/"
+                                            "(Press CTRL+C to quit)").arg(port);
 #endif
     return app.exec();
 }

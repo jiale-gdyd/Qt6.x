@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from extras.pro.
 
 #####################################################################
@@ -82,6 +85,9 @@ qt_internal_add_module(3DExtras
         Qt::3DRenderPrivate
         Qt::CorePrivate
 )
+
+# QTransform conflicts
+set_target_properties(3DExtras PROPERTIES UNITY_BUILD OFF)
 
 # Resources:
 set(extras_resource_files

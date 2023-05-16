@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from compressed_textures.pro.
 
 #####################################################################
@@ -9,8 +12,8 @@ qt_internal_add_manual_test(compressed_textures
     SOURCES
         main.cpp
     DEFINES
-        DATA_DIR=\\\"${CMAKE_CURRENT_SOURCE_DIR}/data\\\"
-    PUBLIC_LIBRARIES
+        DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+    LIBRARIES
         Qt::3DCore
         Qt::3DInput
         Qt::3DLogic

@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 
 #### Inputs
@@ -25,10 +28,11 @@ qt_feature("qt3d-rhi-renderer" PUBLIC
     SECTION "Qt 3D Renderers"
     LABEL "RHI Renderer"
     PURPOSE "Use the RHI renderer (requires qtShaderTools module)"
+    CONDITION TARGET Qt::ShaderTools
 )
 qt_feature("qt3d-vulkan" PUBLIC
     LABEL "Vulkan"
-    CONDITION Vulkan_FOUND AND QT_FEATURE_qt3d_rhi_renderer
+    CONDITION Vulkan_FOUND AND QT_FEATURE_qt3d_rhi_renderer AND QT_FEATURE_vulkan
 )
 qt_configure_add_summary_section(NAME "Qt 3D APIs")
 qt_configure_add_summary_entry(ARGS "qt3d-vulkan")

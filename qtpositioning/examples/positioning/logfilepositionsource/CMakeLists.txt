@@ -1,7 +1,8 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 cmake_minimum_required(VERSION 3.16)
 project(logfilepositionsource LANGUAGES CXX)
-
-set(CMAKE_AUTOMOC ON)
 
 if(NOT DEFINED INSTALL_EXAMPLESDIR)
     set(INSTALL_EXAMPLESDIR "examples")
@@ -10,6 +11,8 @@ endif()
 set(INSTALL_EXAMPLEDIR "${INSTALL_EXAMPLESDIR}/positioning/logfilepositionsource")
 
 find_package(Qt6 REQUIRED COMPONENTS Core Positioning Widgets)
+
+qt_standard_project_setup()
 
 qt_add_executable(logfilepositionsource
     clientapplication.cpp clientapplication.h
@@ -33,7 +36,7 @@ set(logfile_resource_files
     "simplelog.txt"
 )
 
-qt6_add_resources(logfilepositionsource "logfile"
+qt_add_resources(logfilepositionsource "logfile"
     PREFIX
         "/"
     FILES

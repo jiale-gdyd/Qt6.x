@@ -158,12 +158,11 @@ void tst_MultiWindow::cubeMultiViewportMultiWindow()
         if (result.isNull())
             return;
 
-        // Have to check if we are using the threaded render loop
-        // since using a Texture with sourceItem from multiple windows
-        // is only a problem with separate render threads.
-        QRhi *rhi = static_cast<QRhi *>(window1->rendererInterface()->getResource(window1, QSGRendererInterface::RhiResource));
-        QVERIFY(rhi);
-        if (rhi->thread() != QThread::currentThread()) {
+        QRhi *rhi1 = static_cast<QRhi *>(window1->rendererInterface()->getResource(window1, QSGRendererInterface::RhiResource));
+        QVERIFY(rhi1);
+        QRhi *rhi2 = static_cast<QRhi *>(window2->rendererInterface()->getResource(window2, QSGRendererInterface::RhiResource));
+        QVERIFY(rhi2);
+        if (rhi1 != rhi2) {
             QVERIFY(msgCatcher.messageString().contains(QLatin1String("Cannot use QSGTexture")));
         } else {
             QVERIFY(comparePixelNormPos(result, 0.5, 0.5, QColor::fromRgb(239, 0, 0), FUZZ));

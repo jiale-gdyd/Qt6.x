@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Adds an ActiveX server executable, generates an IDL file and links the produced .tbl to the
 # executable.
 # Arguments: See qt6_target_idl

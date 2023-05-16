@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 cmake_minimum_required(VERSION 3.16)
 project(sensorsdocsnippet LANGUAGES CXX)
 
@@ -14,6 +17,7 @@ qt_add_executable(sensorsdocsnippet
     main.cpp
     mybackend.h
     plugin.cpp
+    start.cpp
 )
 
 target_link_libraries(sensorsdocsnippet PUBLIC

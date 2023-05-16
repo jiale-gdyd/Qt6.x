@@ -134,8 +134,7 @@ void QLinuxFbDevice::close()
 
 void *QLinuxFbDevice::nativeDisplay() const
 {
-    Q_UNREACHABLE();
-    return nullptr;
+    Q_UNREACHABLE_RETURN(nullptr);
 }
 
 QPlatformScreen *QLinuxFbDevice::createScreen(const QKmsOutput &output)
@@ -252,7 +251,7 @@ bool QLinuxFbDevice::createFramebuffer(QLinuxFbDevice::Output *output, int buffe
         qErrnoWarning(errno, "Failed to map dumb buffer");
         return false;
     }
-    fb.p = mmap(0, fb.size, PROT_READ | PROT_WRITE, MAP_SHARED, fd(), mreq.offset);
+    fb.p = mmap(nullptr, fb.size, PROT_READ | PROT_WRITE, MAP_SHARED, fd(), mreq.offset);
     if (fb.p == MAP_FAILED) {
         qErrnoWarning(errno, "Failed to mmap dumb buffer");
         return false;
@@ -306,7 +305,6 @@ void QLinuxFbDevice::destroyFramebuffers()
 void QLinuxFbDevice::setMode(Output *output)
 {
     drmModeModeInfo &modeInfo(output->kmsOutput.modes[output->kmsOutput.mode]);
-
     if (output->kmsOutput.mode_set)
         return;
 
@@ -330,7 +328,6 @@ void QLinuxFbDevice::pageFlipHandler(int fd, unsigned int sequence,
     Q_UNUSED(tv_usec);
 
     Output *output = static_cast<Output *>(user_data);
-
 #ifndef TRIPLE_BUFFER
     // The next buffer would be available after flipped
     output->backFb = (output->backFb + 1) % BUFFER_COUNT;
@@ -478,7 +475,6 @@ QRegion QLinuxFbDrmScreen::doRedraw()
         return dirty;
 
     QPainter pntr(&output->fb[output->backFb].wrapper);
-
     if (QFbBackingStore::hasScreenImage() && QFbBackingStore::hasFbImage())
         goto swap;
 
@@ -504,12 +500,10 @@ QRegion QLinuxFbDrmScreen::doRedraw()
         pntr.resetTransform();
     }
     pntr.end();
-
 swap:
     output->dirty[output->backFb] = QRegion();
 
     m_device->swapBuffers(output);
-
     static int count_down = BUFFER_COUNT;
     if (count_down || m_rotation || m_device->outputCount() > 1) {
         count_down --;

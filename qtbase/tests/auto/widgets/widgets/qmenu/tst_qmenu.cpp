@@ -27,6 +27,8 @@
 #include <qpa/qplatformtheme.h>
 #include <qpa/qplatformintegration.h>
 
+#include <QtWidgets/private/qapplication_p.h>
+
 using namespace QTestPrivate;
 
 Q_DECLARE_METATYPE(Qt::Key);
@@ -110,6 +112,7 @@ private slots:
     void tearOffMenuNotDisplayed();
     void QTBUG_61039_menu_shortcuts();
     void screenOrientationChangedCloseMenu();
+    void deleteWhenTriggered();
 
 protected slots:
     void onActivated(QAction*);
@@ -481,7 +484,7 @@ void tst_QMenu::focus()
     QPushButton button("Push me", &window);
     centerOnScreen(&window);
     window.show();
-    qApp->setActiveWindow(&window);
+    QApplicationPrivate::setActiveWindow(&window);
 
     QVERIFY(button.hasFocus());
     QCOMPARE(QApplication::focusWidget(), (QWidget *)&button);
@@ -525,7 +528,7 @@ void tst_QMenu::overrideMenuAction()
     m->addAction(aQuit);
 
     w.show();
-    QApplication::setActiveWindow(&w);
+    QApplicationPrivate::setActiveWindow(&w);
     w.setFocus();
     QVERIFY(QTest::qWaitForWindowActive(&w));
     QVERIFY(w.hasFocus());
@@ -1603,7 +1606,7 @@ void tst_QMenu::transientParent()
     QWindow *topLevel = window.windowHandle();
     QVERIFY(topLevel);
 
-    QApplication::setActiveWindow(&window);
+    QApplicationPrivate::setActiveWindow(&window);
     window.setFocus();
     QVERIFY(QTest::qWaitForWindowActive(&window));
     QVERIFY(window.hasFocus());
@@ -2009,6 +2012,23 @@ void tst_QMenu::screenOrientationChangedCloseMenu()
      QCoreApplication::sendEvent(QCoreApplication::instance(), &event);
 
      QTRY_COMPARE(menu.isVisible(),false);
+}
+
+/*
+    Verify that deleting the menu in a slot connected to an
+    action's triggered signal doesn't crash.
+    QTBUG-106718
+*/
+void tst_QMenu::deleteWhenTriggered()
+{
+    QPointer<QMenu> menu = new QMenu;
+    QAction *action = menu->addAction("Action", [&menu]{
+        delete menu;
+    });
+    menu->popup(QGuiApplication::primaryScreen()->availableGeometry().center());
+    menu->setActiveAction(action);
+    QTest::keyClick(menu, Qt::Key_Return);
+    QTRY_VERIFY(!menu);
 }
 
 QTEST_MAIN(tst_QMenu)

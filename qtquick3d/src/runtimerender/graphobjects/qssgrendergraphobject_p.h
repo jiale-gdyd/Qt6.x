@@ -17,7 +17,9 @@
 //
 
 #include <QtQuick3DRuntimeRender/private/qtquick3druntimerenderglobal_p.h>
+#include <QtQuick3DUtils/private/qquick3dprofiler_p.h>
 #include <QtCore/QString>
+#include <QtCore/QDebug>
 
 #define QSSG_DEBUG_ID 0
 
@@ -134,11 +136,21 @@ struct Q_QUICK3DRUNTIMERENDER_EXPORT QSSGRenderGraphObject
 #endif
     // Type is used for RTTI purposes down the road.
     Type type;
+    Q_QUICK3D_PROFILE_ID
 
     explicit QSSGRenderGraphObject(QSSGRenderGraphObject::Type inType) : type(inType) {}
     virtual ~QSSGRenderGraphObject();
 
     Q_DISABLE_COPY_MOVE(QSSGRenderGraphObject)
+
+    static const char *asString(QSSGRenderGraphObject::Type type);
+    static QDebug debugPrintImpl(QDebug stream, QSSGRenderGraphObject::Type type);
+
+    friend QDebug operator<<(QDebug stream, QSSGRenderGraphObject::Type type)
+    {
+        return debugPrintImpl(stream, type);
+    }
+
 };
 
 QT_END_NAMESPACE

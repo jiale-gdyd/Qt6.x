@@ -78,10 +78,12 @@ worker thread (or more) that work on it exist.
 
 QQmlCodeModel::QQmlCodeModel(QObject *parent, QQmlToolingSettings *settings)
     : QObject { parent },
-      m_currentEnv(std::make_shared<DomEnvironment>(QStringList(),
-                                                    DomEnvironment::Option::SingleThreaded)),
-      m_validEnv(std::make_shared<DomEnvironment>(QStringList(),
-                                                  DomEnvironment::Option::SingleThreaded)),
+      m_currentEnv(std::make_shared<DomEnvironment>(
+                       QStringList(QLibraryInfo::path(QLibraryInfo::QmlImportsPath)),
+                       DomEnvironment::Option::SingleThreaded)),
+      m_validEnv(std::make_shared<DomEnvironment>(
+                     QStringList(QLibraryInfo::path(QLibraryInfo::QmlImportsPath)),
+                     DomEnvironment::Option::SingleThreaded)),
       m_settings(settings)
 {
 }
@@ -173,7 +175,6 @@ void QQmlCodeModel::indexDirectory(const QString &path, int depthLeft)
     if (qmljs.isEmpty())
         return;
     DomItem newCurrent = m_currentEnv.makeCopy(DomItem::CopyOption::EnvConnected).item();
-    int iFile = 0;
     for (const QString &file : qmljs) {
         if (indexCancelled())
             return;
@@ -186,7 +187,6 @@ void QQmlCodeModel::indexDirectory(const QString &path, int depthLeft)
             newCurrent.loadPendingDependencies();
             newCurrent.commitToBase(m_validEnv.ownerAs<DomEnvironment>());
         }
-        ++iFile;
         {
             QMutexLocker l(&m_mutex);
             ++m_indexDoneCost;

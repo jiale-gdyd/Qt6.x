@@ -110,6 +110,8 @@ QQuick3DNode::QQuick3DNode(QQuick3DNode *parent)
 QQuick3DNode::QQuick3DNode(QQuick3DNodePrivate &dd, QQuick3DNode *parent)
     : QQuick3DObject(dd, parent)
 {
+    Q_ASSERT_X(QSSGRenderGraphObject::isNodeType(dd.type), "", "Type needs to be identified as a node type!");
+
     Q_D(QQuick3DNode);
     d->init();
 }
@@ -763,7 +765,7 @@ QSSGRenderGraphObject *QQuick3DNode::updateSpatialNode(QSSGRenderGraphObject *no
         markAllDirty();
         node = new QSSGRenderNode();
     }
-
+    QQuick3DObject::updateSpatialNode(node);
     auto spacialNode = static_cast<QSSGRenderNode *>(node);
     bool transformIsDirty = false;
 
@@ -794,19 +796,12 @@ QSSGRenderGraphObject *QQuick3DNode::updateSpatialNode(QSSGRenderGraphObject *no
     spacialNode->staticFlags = d->m_staticFlags;
 
     // The Hidden in Editor flag overrides the visible value
-    const bool nodeActive = spacialNode->getLocalState(QSSGRenderNode::LocalState::Active);
-    if (nodeActive && d->m_isHiddenInEditor)
+    if (d->m_isHiddenInEditor)
         spacialNode->setState(QSSGRenderNode::LocalState::Active, false);
     else
         spacialNode->setState(QSSGRenderNode::LocalState::Active, d->m_visible);
 
-    if (spacialNode->isDirty(QSSGRenderNode::DirtyFlag::GlobalValuesDirty)) {
-        spacialNode->calculateGlobalVariables();
-        // calculateGlobalVariables clears the dirty flag so transform has to be set dirty again
-        // so that the layer can check node dirtiness afterwards
-        if (transformIsDirty)
-            spacialNode->markDirty(QSSGRenderNode::DirtyFlag::TransformDirty);
-    }
+    DebugViewHelpers::ensureDebugObjectName(spacialNode, this);
 
     return spacialNode;
 }

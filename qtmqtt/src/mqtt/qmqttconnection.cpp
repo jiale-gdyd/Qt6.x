@@ -1650,10 +1650,15 @@ void QMqttConnection::finalize_publish()
         emit m_clientPrivate->m_client->messageStatusChanged(id, QMqtt::MessageStatus::Published, statusProp);
     }
 
-    for (auto sub = m_activeSubscriptions.constBegin(); sub != m_activeSubscriptions.constEnd(); sub++) {
-        if (sub.key().match(topic))
-            emit sub.value()->messageReceived(qmsg);
+    // Store subscriptions in a temporary container as each messageReceived is allowed to subscribe
+    // again and thus invalid the iterator of the loop.
+    QList<QMqttSubscription *> subscribers;
+    for (const auto [key, value] : m_activeSubscriptions.asKeyValueRange()) {
+        if (key.match(topic))
+            subscribers.append(value);
     }
+    for (const auto &s : subscribers)
+        emit s->messageReceived(qmsg);
 
     if (m_currentPublish.qos == 1)
         sendControlPublishAcknowledge(id);

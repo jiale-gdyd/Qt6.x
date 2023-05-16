@@ -13,23 +13,27 @@ QT_BEGIN_NAMESPACE
 struct QSSGRenderableImage;
 struct QSSGSubsetRenderable;
 
-QSSGSubsetRenderable::QSSGSubsetRenderable(QSSGRenderableObjectFlags inFlags,
+QSSGSubsetRenderable::QSSGSubsetRenderable(Type type,
+                                           QSSGRenderableObjectFlags inFlags,
                                            const QVector3D &inWorldCenterPt,
                                            const QSSGRef<QSSGRenderer> &gen,
-                                           QSSGRenderSubset &inSubset,
+                                           const QSSGRenderSubset &inSubset,
                                            const QSSGModelContext &inModelContext,
                                            float inOpacity,
+                                           quint32 inSubsetLevelOfDetail,
                                            const QSSGRenderGraphObject &mat,
                                            QSSGRenderableImage *inFirstImage,
                                            QSSGShaderDefaultMaterialKey inShaderKey,
-                                           const QSSGShaderLightList &inLights)
-    : QSSGRenderableObject(inFlags,
+                                           const QSSGShaderLightListView &inLights)
+    : QSSGRenderableObject(type,
+                           inFlags,
                            inWorldCenterPt,
                            inModelContext.model.globalTransform,
                            inSubset.bounds,
-                           inModelContext.model.particleBuffer != nullptr ? inModelContext.model.particleBuffer->bounds()
-                                                                          : QSSGBounds3(),
-                           inModelContext.model.m_depthBias)
+                           inModelContext.model.m_depthBiasSq,
+                           inModelContext.model.instancingLodMin,
+                           inModelContext.model.instancingLodMax)
+    , subsetLevelOfDetail(inSubsetLevelOfDetail)
     , generator(gen)
     , modelContext(inModelContext)
     , subset(inSubset)
@@ -39,13 +43,17 @@ QSSGSubsetRenderable::QSSGSubsetRenderable(QSSGRenderableObjectFlags inFlags,
     , shaderDescription(inShaderKey)
     , lights(inLights)
 {
-    if (mat.type == QSSGRenderGraphObject::Type::CustomMaterial) {
-        renderableFlags.setCustomMaterialMeshSubset(true);
+    if (mat.type == QSSGRenderGraphObject::Type::CustomMaterial)
         depthWriteMode = static_cast<const QSSGRenderCustomMaterial *>(&mat)->m_depthDrawMode;
-    } else {
-        renderableFlags.setDefaultMaterialMeshSubset(true);
+    else
         depthWriteMode = static_cast<const QSSGRenderDefaultMaterial *>(&mat)->depthDrawMode;
-    }
+
+    const bool modelBlendParticle = (inModelContext.model.particleBuffer != nullptr
+                                     && inModelContext.model.particleBuffer->particleCount());
+    if (modelBlendParticle)
+        globalBounds = inModelContext.model.particleBuffer->bounds();
+    else
+        globalBounds.transform(globalTransform);
 }
 
 QSSGParticlesRenderable::QSSGParticlesRenderable(QSSGRenderableObjectFlags inFlags,
@@ -54,14 +62,14 @@ QSSGParticlesRenderable::QSSGParticlesRenderable(QSSGRenderableObjectFlags inFla
                                                  const QSSGRenderParticles &inParticles,
                                                  QSSGRenderableImage *inFirstImage,
                                                  QSSGRenderableImage *inColorTable,
-                                                 const QSSGShaderLightList &inLights,
+                                                 const QSSGShaderLightListView &inLights,
                                                  float inOpacity)
-    : QSSGRenderableObject(inFlags,
+    : QSSGRenderableObject(Type::Particles,
+                           inFlags,
                            inWorldCenterPt,
                            inParticles.globalTransform,
-                           QSSGBounds3(),
                            inParticles.m_particleBuffer.bounds(),
-                           inParticles.m_depthBias)
+                           inParticles.m_depthBiasSq)
     , generator(gen)
     , particles(inParticles)
     , firstImage(inFirstImage)
@@ -69,7 +77,10 @@ QSSGParticlesRenderable::QSSGParticlesRenderable(QSSGRenderableObjectFlags inFla
     , lights(inLights)
     , opacity(inOpacity)
 {
-    renderableFlags.setParticlesRenderable(true);
+    // Bounds are in global space for _model blend_ particles
+    globalBounds = inParticles.m_particleBuffer.bounds();
+    if (inParticles.type != QSSGRenderParticles::Type::ModelBlendParticle)
+        globalBounds.transform(globalTransform);
 }
 
 QT_END_NAMESPACE

@@ -613,6 +613,11 @@ void QQuick3DShaderUtilsRenderPass::qmlAppendShader(QQmlListProperty<QQuick3DSha
 
     // the only thing we can do is to append to our list, do not try to be clever
     that->m_shaders.append(shader);
+
+    connect(shader, &QQuick3DShaderUtilsShader::shaderChanged, that, &QQuick3DShaderUtilsRenderPass::changed);
+    connect(shader, &QQuick3DShaderUtilsShader::stageChanged, that, &QQuick3DShaderUtilsRenderPass::changed);
+
+    emit that->changed();
 }
 
 QQuick3DShaderUtilsShader *QQuick3DShaderUtilsRenderPass::qmlShaderAt(QQmlListProperty<QQuick3DShaderUtilsShader> *list,
@@ -631,7 +636,13 @@ qsizetype QQuick3DShaderUtilsRenderPass::qmlShaderCount(QQmlListProperty<QQuick3
 void QQuick3DShaderUtilsRenderPass::qmlShaderClear(QQmlListProperty<QQuick3DShaderUtilsShader> *list)
 {
     QQuick3DShaderUtilsRenderPass *that = qobject_cast<QQuick3DShaderUtilsRenderPass *>(list->object);
+
+    for (QQuick3DShaderUtilsShader *shader : that->m_shaders)
+        shader->disconnect(that);
+
     that->m_shaders.clear();
+
+    emit that->changed();
 }
 
 QQmlListProperty<QQuick3DShaderUtilsShader> QQuick3DShaderUtilsRenderPass::shaders()
@@ -659,15 +670,11 @@ void QQuick3DShaderUtilsTextureInput::setTexture(QQuick3DTexture *texture)
     while (p != nullptr) {
         if (QQuick3DCustomMaterial *mat = qobject_cast<QQuick3DCustomMaterial *>(p)) {
             mat->setDynamicTextureMap(this);
-            QQuick3DObjectPrivate::updatePropertyListener(texture, m_texture, QQuick3DObjectPrivate::get(mat)->sceneManager, name, mat->m_connections, [this](QQuick3DObject *) {
-                setTexture(nullptr);
-            });
+            QQuick3DObjectPrivate::attachWatcherPriv(mat, this, &QQuick3DShaderUtilsTextureInput::setTexture, texture, m_texture);
             break;
         } else if (QQuick3DEffect *efx = qobject_cast<QQuick3DEffect *>(p)) {
             efx->setDynamicTextureMap(this);
-            QQuick3DObjectPrivate::updatePropertyListener(texture, m_texture, QQuick3DObjectPrivate::get(efx)->sceneManager, name, efx->m_connections, [this](QQuick3DObject *) {
-                setTexture(nullptr);
-            });
+            QQuick3DObjectPrivate::attachWatcherPriv(efx, this, &QQuick3DShaderUtilsTextureInput::setTexture, texture, m_texture);
             break;
         }
         p = p->parent();

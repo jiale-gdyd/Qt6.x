@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from vkbnativehost.pro.
 
 #####################################################################
@@ -11,7 +14,7 @@ qt_internal_add_manual_test(x11vkbnativehost
         sendertodbus.cpp sendertodbus.h
     DEFINES
         QT_DEPRECATED_WARNINGS
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::DBus
 )
 

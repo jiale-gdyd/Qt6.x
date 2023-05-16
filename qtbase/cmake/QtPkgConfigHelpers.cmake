@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 function(qt_internal_collect_direct_target_dependencies target targets_out_var)
     __qt_internal_walk_libs("${target}" "${targets_out_var}" _rcc_objects
                             "qt_direct_targets_dict" "direct_targets")
@@ -19,7 +22,8 @@ endmacro()
 # Create a Qt6*.pc file intended for pkg-config consumption.
 function(qt_internal_generate_pkg_config_file module)
     # TODO: PkgConfig is supported under MSVC with pkgconf (github.com/pkgconf/pkgconf)
-    if((NOT UNIX OR QT_FEATURE_framework) AND NOT MINGW OR CMAKE_VERSION VERSION_LESS "3.20")
+    if((NOT UNIX OR QT_FEATURE_framework)
+        AND NOT MINGW OR CMAKE_VERSION VERSION_LESS "3.20" OR ANDROID)
         return()
     endif()
     if(NOT BUILD_SHARED_LIBS)

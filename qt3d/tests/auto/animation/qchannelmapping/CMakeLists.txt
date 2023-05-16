@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from qchannelmapping.pro.
 
 #####################################################################
@@ -9,7 +12,7 @@ qt_internal_add_test(tst_qchannelmapping
         tst_qchannelmapping.cpp
     INCLUDE_DIRECTORIES
         ../../core/common
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::3DAnimation
         Qt::3DAnimationPrivate
         Qt::3DCore

@@ -108,6 +108,36 @@ void writeFilesToOpen(QXmlStreamWriter &writer, const QString &installPath,
 }
 
 /*!
+    \internal
+    \brief Writes example metadata into \a writer.
+
+    For instance,
+
+
+      \ meta category {Application Example}
+
+    becomes
+
+      <meta>
+        <entry name="category">Application Example</entry>
+      <meta>
+*/
+static void writeMetaInformation(QXmlStreamWriter &writer, const QStringMultiMap &map)
+{
+    if (map.isEmpty())
+        return;
+
+    writer.writeStartElement("meta");
+    for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
+        writer.writeStartElement("entry");
+        writer.writeAttribute(QStringLiteral("name"), it.key());
+        writer.writeCharacters(it.value());
+        writer.writeEndElement(); // tag
+    }
+    writer.writeEndElement(); // meta
+}
+
+/*!
     \class ManifestWriter
     \internal
     \brief The ManifestWriter is responsible for writing manifest files.
@@ -160,31 +190,76 @@ void ManifestWriter::processManifestMetaContent(const QString &fullName, F match
  */
 void ManifestWriter::generateManifestFiles()
 {
-    generateManifestFile("examples", "example");
-    generateManifestFile("demos", "demo");
+    generateExampleManifestFile();
     m_qdb->exampleNodeMap().clear();
     m_manifestMetaContent.clear();
 }
 
-/*!
-  This function is called by generateManifestFiles(), once
-  for each manifest file to be generated. \a manifest is the
-  type of manifest file.
+/*
+    Returns Qt module name as lower case tag, stripping Qt prefix:
+    QtQuickControls -> quickcontrols
+    QtOpenGL -> opengl
+    QtQuick3D -> quick3d
  */
-void ManifestWriter::generateManifestFile(const QString &manifest, const QString &element)
+static QString moduleNameAsTag(const QString &module)
+{
+    QString moduleName = module;
+    if (moduleName.startsWith("Qt"))
+        moduleName = moduleName.mid(2);
+    // Some examples are in QtDoc module, but 'doc' as tag makes little sense
+    if (moduleName == "Doc")
+        return QString();
+    return moduleName.toLower();
+}
+
+/*
+    Return tags that were added with
+       \ meta {tag} {tag1[,tag2,...]}
+    from example metadata
+ */
+static QSet<QString> tagsAddedWithMetaCommand(const ExampleNode *example)
+{
+    Q_ASSERT(example);
+
+    QSet<QString> tags;
+    const QStringMultiMap *metaTagMap = example->doc().metaTagMap();
+    if (metaTagMap) {
+        for (const auto &tag : metaTagMap->values("tag")) {
+            const auto &tagList = tag.toLower().split(QLatin1Char(','), Qt::SkipEmptyParts);
+            tags += QSet<QString>(tagList.constBegin(), tagList.constEnd());
+        }
+    }
+    return tags;
+}
+
+/*
+    Writes the contents of tags into writer, formatted as
+      <tags>tag1,tag2..</tags>
+ */
+static void writeTagsElement(QXmlStreamWriter *writer, const QSet<QString> &tags)
+{
+    Q_ASSERT(writer);
+    if (tags.isEmpty())
+        return;
+
+    writer->writeStartElement("tags");
+    QStringList sortedTags = tags.values();
+    sortedTags.sort();
+    writer->writeCharacters(sortedTags.join(","));
+    writer->writeEndElement(); // tags
+}
+
+/*!
+  This function is called by generateExampleManifestFiles(), once
+  for each manifest file to be generated.
+ */
+void ManifestWriter::generateExampleManifestFile()
 {
     const ExampleNodeMap &exampleNodeMap = m_qdb->exampleNodeMap();
     if (exampleNodeMap.isEmpty())
         return;
 
-    bool demos = (manifest == QLatin1String("demos"));
-    if (!std::any_of(exampleNodeMap.cbegin(), exampleNodeMap.cend(),
-        [demos](const ExampleNode *en) {
-            return demos == en->name().startsWith("demos");
-        }))
-        return;
-
-    const QString outputFileName = manifest + "-manifest.xml";
+    const QString outputFileName = "examples-manifest.xml";
     QFile outputFile(m_outputDirectory + QLatin1Char('/') + outputFileName);
     if (!outputFile.open(QFile::WriteOnly | QFile::Text))
         return;
@@ -194,21 +269,19 @@ void ManifestWriter::generateManifestFile(const QString &manifest, const QString
     writer.writeStartDocument();
     writer.writeStartElement("instructionals");
     writer.writeAttribute("module", m_project);
-    writer.writeStartElement(manifest);
+    writer.writeStartElement("examples");
 
     for (const auto &example : exampleNodeMap.values()) {
         QMap<QString, QString> usedAttributes;
-        if (demos != example->name().startsWith("demos"))
-            continue;
-        m_tags.clear();
+        QSet<QString> tags;
         const QString installPath = retrieveExampleInstallationPath(example);
         const QString fullName = m_project + QLatin1Char('/') + example->title();
 
         processManifestMetaContent(
-                fullName, [&](const ManifestMetaFilter &filter) { m_tags += filter.m_tags; });
-        includeTagsAddedWithMetaCommand(example);
+                fullName, [&](const ManifestMetaFilter &filter) { tags += filter.m_tags; });
+        tags += tagsAddedWithMetaCommand(example);
         // omit from the manifest if explicitly marked broken
-        if (m_tags.contains("broken"))
+        if (tags.contains("broken"))
             continue;
 
         // attributes that are always written for the element
@@ -233,84 +306,40 @@ void ManifestWriter::generateManifestFile(const QString &manifest, const QString
             }
         });
 
-        // write the example/demo element
-        writer.writeStartElement(element);
+        writer.writeStartElement("example");
         for (auto it = usedAttributes.cbegin(); it != usedAttributes.cend(); ++it)
             writer.writeAttribute(it.key(), it.value());
 
         warnAboutUnusedAttributes(usedAttributes.keys(), example);
         writeDescription(&writer, example);
-        addModuleNameAsTag();
-        writeTagsElement(&writer);
+
+        const QString moduleNameTag = moduleNameAsTag(m_project);
+        if (!moduleNameTag.isEmpty())
+            tags << moduleNameTag;
+        writeTagsElement(&writer, tags);
 
         const QString exampleName = example->name().mid(example->name().lastIndexOf('/') + 1);
         const auto files = example->files();
         const QMap<int, QString> filesToOpen = getFilesToOpen(files, exampleName);
         writeFilesToOpen(writer, installPath, filesToOpen);
 
-        writer.writeEndElement(); // example/demo
+        if (const QStringMultiMap *metaTagMapP = example->doc().metaTagMap()) {
+            // Write \meta elements into the XML, except for 'tag', 'installpath',
+            // as they are handled separately
+            QStringMultiMap map = *metaTagMapP;
+            erase_if(map, [](QStringMultiMap::iterator iter) {
+                return iter.key() == "tag" || iter.key() == "installpath";
+            });
+            writeMetaInformation(writer, map);
+        }
+
+        writer.writeEndElement(); // example
     }
 
     writer.writeEndElement(); // examples
     writer.writeEndElement(); // instructionals
     writer.writeEndDocument();
     outputFile.close();
-}
-
-/*!
-    \internal
-
-    Populates the tags and writes the tags element, then clears the tags member.
- */
-void ManifestWriter::writeTagsElement(QXmlStreamWriter *writer)
-{
-    Q_ASSERT(writer);
-    if (m_tags.isEmpty())
-        return;
-
-    writer->writeStartElement("tags");
-    QStringList sortedTags = m_tags.values();
-    sortedTags.sort();
-    writer->writeCharacters(sortedTags.join(","));
-    writer->writeEndElement(); // tags
-}
-
-/*!
-    \internal
-
-    Add words from module name as tags
-    QtQuickControls -> quickcontrols
-    QtOpenGL -> opengl
-    QtQuick3D -> quick3d
- */
-void ManifestWriter::addModuleNameAsTag()
-{
-    QString moduleName = m_project;
-    if (moduleName.startsWith("Qt"))
-        moduleName = moduleName.mid(2);
-    // Some examples are in QtDoc module, but 'doc' as tag makes little sense
-    if (moduleName == "Doc")
-        return;
-    m_tags << moduleName.toLower();
-}
-
-/*!
-    \internal
-
-    Include tags added via \meta {tag} {tag1[,tag2,...]}
-    within \example topic.
- */
-void ManifestWriter::includeTagsAddedWithMetaCommand(const ExampleNode *example)
-{
-    Q_ASSERT(example);
-
-    const QStringMultiMap *metaTagMap = example->doc().metaTagMap();
-    if (metaTagMap) {
-        for (const auto &tag : metaTagMap->values("tag")) {
-            const auto &tagList = tag.toLower().split(QLatin1Char(','), Qt::SkipEmptyParts);
-            m_tags += QSet<QString>(tagList.constBegin(), tagList.constEnd());
-        }
-    }
 }
 
 /*!

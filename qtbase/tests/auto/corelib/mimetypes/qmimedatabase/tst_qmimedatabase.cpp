@@ -6,6 +6,8 @@
 #include "qstandardpaths.h"
 
 #ifdef Q_OS_UNIX
+#include <dirent.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #endif
@@ -24,6 +26,8 @@
 #if QT_CONFIG(process)
 #include <QProcess>
 #endif
+
+using namespace Qt::StringLiterals;
 
 static const char *const additionalMimeFiles[] = {
     "yast2-metapackage-handler-mimetypes.xml",
@@ -245,6 +249,7 @@ void tst_QMimeDatabase::mimeTypeForFileName_data()
     // fdo bug 15436, needs shared-mime-info >= 0.40 (and this tests the globs2-parsing code).
     QTest::newRow("glob that ends with *, also matches *.pdf. *.pdf has higher weight") << "README.pdf" << "application/pdf";
     QTest::newRow("directory") << "/" << "inode/directory";
+    QTest::newRow("resource-directory") << ":/files/" << "inode/directory";
     QTest::newRow("doesn't exist, no extension") << "IDontExist" << "application/octet-stream";
     QTest::newRow("doesn't exist but has known extension") << "IDontExist.txt" << "text/plain";
     QTest::newRow("empty") << "" << "application/octet-stream";
@@ -497,6 +502,42 @@ void tst_QMimeDatabase::mimeTypeForFileWithContent()
         QCOMPARE(mime.name(), QString::fromLatin1("application/smil+xml"));
     }
 
+    // Test what happens with Qt resources (file engines in general)
+    {
+        QFile rccFile(":/files/test.txt");
+
+        mime = db.mimeTypeForFile(rccFile.fileName());
+        QCOMPARE(mime.name(), "text/plain"_L1);
+
+        QVERIFY(rccFile.open(QIODevice::ReadOnly));
+        mime = db.mimeTypeForData(&rccFile);
+        QCOMPARE(mime.name(), "text/x-qml"_L1);
+        QVERIFY(rccFile.isOpen());
+
+        mime = db.mimeTypeForFile(rccFile.fileName(), QMimeDatabase::MatchContent);
+        QCOMPARE(mime.name(), "text/x-qml"_L1);
+    }
+
+    // Directories
+    {
+        mime = db.mimeTypeForFile("/");
+        QCOMPARE(mime.name(), "inode/directory"_L1);
+
+        QString dirName = QDir::tempPath();
+        if (!dirName.endsWith(u'/'))
+            dirName += u'/';
+        mime = db.mimeTypeForFile(dirName);
+        QCOMPARE(mime.name(), "inode/directory"_L1);
+
+        while (dirName.endsWith(u'/'))
+            dirName.chop(1);
+        mime = db.mimeTypeForFile(dirName);
+        QCOMPARE(mime.name(), "inode/directory"_L1);
+
+        mime = db.mimeTypeForFile(":/files");
+        QCOMPARE(mime.name(), "inode/directory"_L1);
+    }
+
     // Test what happens with an incorrect path
     mime = db.mimeTypeForFile(QString::fromLatin1("file:///etc/passwd" /* incorrect code, use a path instead */));
     QVERIFY(mime.isDefault());
@@ -583,6 +624,82 @@ void tst_QMimeDatabase::mimeTypeForFileAndContent()
     QVERIFY(buffer.isOpen());
     QCOMPARE(buffer.pos(), qint64(0));
 }
+
+#ifdef Q_OS_UNIX
+void tst_QMimeDatabase::mimeTypeForUnixSpecials_data()
+{
+    QTest::addColumn<QString>("name");
+    QTest::addColumn<QString>("expected");
+
+    static const char * const mimeTypes[] = {
+        "inode/blockdevice",
+        "inode/chardevice",
+        "inode/fifo",
+        "inode/socket",
+    };
+    enum SpecialType {
+        FoundBlock  = 0,
+        FoundChar   = 1,
+        FoundFifo   = 2,
+        FoundSocket = 3,
+    };
+    uint found = 0;
+    auto nothingfound = []() {
+        QSKIP("No special Unix inode types found!");
+    };
+
+    // on a standard Linux system (systemd), /dev/log is a symlink to a socket
+    // and /dev/initctl is a symlink to a FIFO
+    int devfd = open("/dev", O_RDONLY);
+    DIR *devdir = fdopendir(devfd); // takes ownership
+    if (!devdir)
+        return nothingfound();
+
+    while (struct dirent *ent = readdir(devdir)) {
+        struct stat statbuf;
+        if (fstatat(devfd, ent->d_name, &statbuf, 0) < 0)
+            continue;
+
+        SpecialType type;
+        if (S_ISBLK(statbuf.st_mode)) {
+            type = FoundBlock;
+        } else if (S_ISCHR(statbuf.st_mode)) {
+            type = FoundChar;
+        } else if (S_ISFIFO(statbuf.st_mode)) {
+            type = FoundFifo;
+        } else if (S_ISSOCK(statbuf.st_mode)) {
+            type = FoundSocket;
+        } else {
+            if (!S_ISREG(statbuf.st_mode) && !S_ISDIR(statbuf.st_mode))
+                qWarning("Could not tell what file type '%s' is: %#o'",
+                         ent->d_name, statbuf.st_mode);
+            continue;
+        }
+
+        if (found & (1U << type))
+            continue;       // we've already seen such a type
+
+        const char *mimeType = mimeTypes[type];
+        QTest::addRow("%s", mimeType)
+                << u"/dev/"_s + QFile::decodeName(ent->d_name) << mimeType;
+        found |= (1U << type);
+    }
+    closedir(devdir);
+
+    if (!found)
+        nothingfound();
+}
+
+void tst_QMimeDatabase::mimeTypeForUnixSpecials()
+{
+    QFETCH(QString, name);
+    QFETCH(QString, expected);
+
+    qInfo() << "Testing that" << name << "is" << expected;
+    QMimeDatabase db;
+    QCOMPARE(db.mimeTypeForFile(name).name(), expected);
+}
+#endif
 
 void tst_QMimeDatabase::allMimeTypes()
 {
@@ -886,7 +1003,7 @@ static bool waitAndRunUpdateMimeDatabase(const QString &path)
     QFileInfo mimeCacheInfo(path + QString::fromLatin1("/mime.cache"));
     if (mimeCacheInfo.exists()) {
         // Wait until the beginning of the next second
-        while (mimeCacheInfo.lastModified().secsTo(QDateTime::currentDateTime()) == 0) {
+        while (mimeCacheInfo.lastModified().secsTo(QDateTime::currentDateTimeUtc()) == 0) {
             QTest::qSleep(200);
         }
     }

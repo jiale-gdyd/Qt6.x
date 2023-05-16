@@ -17,7 +17,7 @@ Q_GLOBAL_STATIC(QReadWriteLock, rwLock)
 
 QT_BEGIN_NAMESPACE
 
-Q_LOGGING_CATEGORY(lcAudio, "qt.multimedia.audio")
+static Q_LOGGING_CATEGORY(lcAudio, "qt.multimedia.audio")
 
 AndroidMediaPlayer::AndroidMediaPlayer()
     : QObject()
@@ -250,6 +250,20 @@ void AndroidMediaPlayer::blockAudio()
 void AndroidMediaPlayer::unblockAudio()
 {
     mAudioBlocked = false;
+}
+
+void AndroidMediaPlayer::startSoundStreaming(const int inputId, const int outputId)
+{
+    QJniObject::callStaticMethod<void>("org/qtproject/qt/android/multimedia/QtAudioDeviceManager",
+                                       "startSoundStreaming",
+                                       inputId,
+                                       outputId);
+}
+
+void AndroidMediaPlayer::stopSoundStreaming()
+{
+    QJniObject::callStaticMethod<void>(
+        "org/qtproject/qt/android/multimedia/QtAudioDeviceManager", "stopSoundStreaming");
 }
 
 bool AndroidMediaPlayer::setPlaybackRate(qreal rate)
@@ -517,3 +531,5 @@ bool AndroidMediaPlayer::registerNativeMethods()
 }
 
 QT_END_NAMESPACE
+
+#include "moc_androidmediaplayer_p.cpp"

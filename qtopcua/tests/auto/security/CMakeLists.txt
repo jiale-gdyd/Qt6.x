@@ -1,4 +1,5 @@
-# Generated from security.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## tst_security Test:
@@ -10,7 +11,7 @@ qt_internal_add_test(tst_security
         tst_security.cpp
     INCLUDE_DIRECTORIES
         ../../common
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Network
         Qt::OpcUa
 )
@@ -32,8 +33,6 @@ qt_internal_add_resource(tst_security "certs"
         ${certs_resource_files}
 )
 
-# special case begin
 if (WIN32)
     target_compile_definitions(tst_security PRIVATE TESTS_CMAKE_SPECIFIC_PATH)
 endif()
-# special case end

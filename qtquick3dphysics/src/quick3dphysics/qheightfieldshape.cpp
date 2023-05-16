@@ -23,7 +23,7 @@
 #include "geometry/PxHeightField.h"
 #include "geometry/PxHeightFieldDesc.h"
 
-#include "qdynamicsworld_p.h"
+#include "qphysicsworld_p.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -134,7 +134,7 @@ physx::PxHeightField *QQuick3DPhysicsHeightField::heightField()
     if (m_heightField)
         return m_heightField;
 
-    physx::PxPhysics *thePhysics = QDynamicsWorld::getPhysics();
+    physx::PxPhysics *thePhysics = QPhysicsWorld::getPhysics();
     if (thePhysics == nullptr)
         return nullptr;
 
@@ -165,7 +165,9 @@ physx::PxHeightField *QQuick3DPhysicsHeightField::heightField()
     hfDesc.samples.stride = sizeof(physx::PxHeightFieldSample);
 
     physx::PxDefaultMemoryOutputStream buf;
-    if (numRows && numCols && QDynamicsWorld::getCooking()->cookHeightField(hfDesc, buf)) {
+
+    const auto cooking = QPhysicsWorld::getCooking();
+    if (numRows && numCols && cooking && cooking->cookHeightField(hfDesc, buf)) {
         auto size = buf.getSize();
         auto *data = buf.getData();
         physx::PxDefaultMemoryInputData input(data, size);
@@ -192,25 +194,45 @@ int QQuick3DPhysicsHeightField::columns() const
 
 /*!
     \qmltype HeightFieldShape
-    \inqmlmodule QtQuick3DPhysics
+    \inqmlmodule QtQuick3D.Physics
     \inherits CollisionShape
     \since 6.4
-    \brief Height field shape.
+    \brief A collision shape where the elevation is defined by a height map.
 
-    This is the height-field shape.
+    The HeightFieldShape type defines a physical surface where the height is determined by
+    the \l {QColor#The HSV Color Model}{value} of the pixels of the \l {source} image. The
+    x-axis of the image is mapped to the positive x-axis of the scene, and the y-axis of the
+    image is mapped to the negative z-axis of the scene. A typical use case is to represent
+    natural terrain.
+
+    Objects that are controlled by the physics simulation cannot use HeightFieldShape: It can only
+    be used with \l StaticRigidBody and \l {DynamicRigidBody::isKinematic}{kinematic bodies}.
+
+    \l [QtQuick3D]{HeightFieldGeometry}{QtQuick3D.Helpers.HeightFieldGeometry} is API compatible
+    with the HeightFieldShape type, and can be used to show the height field visually. To
+    improve performance, use a lower resolution version of the height map for the HeightFieldShape:
+    As long as the \l{extents} and the image aspect ratio are the same, the physics body and the
+    visual item will overlap.
+
+    \sa {Qt Quick 3D Physics Shapes and Bodies}{Shapes and Bodies overview documentation}
 */
 
 /*!
     \qmlproperty vector3d HeightFieldShape::extents
     This property defines the extents of the height field. The default value
-    is \c{(100, 100, 100)} when the heightMap is square. When the heightMap is
-    non-square, the default value is reduced along the x- or z-axis so the height
+    is \c{(100, 100, 100)} when the heightMap is square. If the heightMap is
+    non-square, the default value is reduced along the x- or z-axis, so the height
     field will keep the aspect ratio of the image.
 */
 
 /*!
-    \qmlproperty url HeightFieldShape::heightMap
+    \qmlproperty url HeightFieldShape::source
     This property defines the location of the heightMap file.
+
+    Internally, HeightFieldShape converts the height map image to an optimized data structure. This
+    conversion can be done in advance. See the \l{Qt Quick 3D Physics Cooking}{cooking overview
+    documentation} for details.
+
 */
 
 QHeightFieldShape::QHeightFieldShape() = default;
@@ -276,23 +298,23 @@ void QHeightFieldShape::updateExtents()
     }
 }
 
-const QUrl &QHeightFieldShape::heightMap() const
+const QUrl &QHeightFieldShape::source() const
 {
     return m_heightMapSource;
 }
 
-void QHeightFieldShape::setHeightMap(const QUrl &newHeightMap)
+void QHeightFieldShape::setSource(const QUrl &newSource)
 {
-    if (m_heightMapSource == newHeightMap)
+    if (m_heightMapSource == newSource)
         return;
-    m_heightMapSource = newHeightMap;
+    m_heightMapSource = newSource;
 
     m_heightField = QQuick3DPhysicsHeightFieldManager::getHeightField(m_heightMapSource, this);
 
     m_dirtyPhysx = true;
 
     emit needsRebuild(this);
-    emit heightMapChanged();
+    emit sourceChanged();
 }
 
 const QVector3D &QHeightFieldShape::extents() const

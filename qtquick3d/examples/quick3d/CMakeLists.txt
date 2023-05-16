@@ -1,6 +1,8 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 qt_internal_add_example(antialiasing)
 qt_internal_add_example(customshaders)
-qt_internal_add_example(effects)
 qt_internal_add_example(hellocube)
 qt_internal_add_example(intro)
 qt_internal_add_example(view3d)
@@ -29,3 +31,6 @@ qt_internal_add_example(screenspacereflections)
 qt_internal_add_example(reflectionprobes)
 qt_internal_add_example(bakedlightmap)
 qt_internal_add_example(robotarm)
+qt_internal_add_example(lodhelper)
+qt_internal_add_example(simplefog)
+qt_internal_add_example(sceneeffects)

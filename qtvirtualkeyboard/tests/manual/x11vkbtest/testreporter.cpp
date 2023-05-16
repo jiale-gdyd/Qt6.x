@@ -9,6 +9,8 @@
 #include "colors.h"
 #include "startclose.h"
 
+using Qt::endl;
+
 namespace {
 const QString KReport_CSV_File = "result.csv";
 const QString KCSV_Column_Separator = ";";

@@ -18,6 +18,8 @@
 
 Q_LOGGING_CATEGORY(lcTestDockWidget, "qt.widgets.tests.qdockwidget")
 
+#include <QtWidgets/private/qapplication_p.h>
+
 bool hasFeature(QDockWidget *dockwidget, QDockWidget::DockWidgetFeature feature)
 { return (dockwidget->features() & feature) == feature; }
 
@@ -1140,13 +1142,17 @@ void tst_QDockWidget::createTestWidgets(QMainWindow* &mainWindow, QPointer<QWidg
     mainWindow->setDockOptions(QMainWindow::AllowTabbedDocks | QMainWindow::GroupedDragging);
     mainWindow->move(m_topLeft);
 
+    const int minWidth = QApplication::style()->pixelMetric(QStyle::PM_TitleBarHeight);
+    const QSize minSize(minWidth, 2 * minWidth);
     d1 = new QDockWidget(mainWindow);
+    d1->setMinimumSize(minSize);
     d1->setWindowTitle("I am D1");
     d1->setObjectName("D1");
     d1->setFeatures(QDockWidget::DockWidgetFeatureMask);
     d1->setAllowedAreas(Qt::DockWidgetArea::AllDockWidgetAreas);
 
     d2 = new QDockWidget(mainWindow);
+    d2->setMinimumSize(minSize);
     d2->setWindowTitle("I am D2");
     d2->setObjectName("D2");
     d2->setFeatures(QDockWidget::DockWidgetFeatureMask);
@@ -1157,7 +1163,7 @@ void tst_QDockWidget::createTestWidgets(QMainWindow* &mainWindow, QPointer<QWidg
     d1->show();
     d2->show();
     mainWindow->show();
-    QApplication::setActiveWindow(mainWindow);
+    QApplicationPrivate::setActiveWindow(mainWindow);
 
 }
 

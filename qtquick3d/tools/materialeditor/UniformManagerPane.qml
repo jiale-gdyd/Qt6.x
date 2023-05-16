@@ -7,7 +7,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick3D
 import QtQuick.Dialogs
-import MaterialEditorHelpers 1.0
+import QtQuick3D.MaterialEditor
 import Qt.labs.qmlmodels
 
 Pane {
@@ -161,7 +161,7 @@ Pane {
                         }
                         Label {
                             width: uniformTable.columnWidth(2)
-                            RowLayout.fillWidth: true
+                            Layout.fillWidth: true
                             text: uniformTable.convertValueToString(value, type)
                         }
                     }

@@ -1,4 +1,5 @@
-# Generated from opcua.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## OpcUa Module:
@@ -80,9 +81,6 @@ qt_internal_add_module(OpcUa
     GENERATE_CPP_EXPORTS
 )
 
-#### Keys ignored in scope 1:.:.:opcua.pro:<TRUE>:
-# QT_FOR_CONFIG = "core-private"
-
 ## Scopes:
 #####################################################################
 
@@ -90,25 +88,28 @@ qt_internal_extend_target(OpcUa CONDITION QT_FEATURE_gds AND QT_FEATURE_ssl AND 
     SOURCES
         client/qopcuagdsclient.cpp client/qopcuagdsclient_p.h
         x509/openssl_symbols.cpp
-        x509/qopcuakeypair.cpp
+        x509/qopcuakeypair.cpp x509/qopcuakeypair.h
         x509/qopcuakeypair_openssl.cpp
-        x509/qopcuax509certificatesigningrequest.cpp
+        x509/qopcuax509certificatesigningrequest.cpp x509/qopcuax509certificatesigningrequest.h
         x509/qopcuax509certificatesigningrequest_openssl.cpp
-        x509/qopcuax509distinguishedname.cpp
-        x509/qopcuax509extension.cpp
-        x509/qopcuax509extensionbasicconstraints.cpp
-        x509/qopcuax509extensionextendedkeyusage.cpp
-        x509/qopcuax509extensionkeyusage.cpp
+        x509/qopcuax509distinguishedname.cpp x509/qopcuax509distinguishedname.h
+        x509/qopcuax509extension.cpp x509/qopcuax509extension.h
+        x509/qopcuax509extensionbasicconstraints.cpp x509/qopcuax509extensionbasicconstraints.h
+        x509/qopcuax509extensionextendedkeyusage.cpp x509/qopcuax509extensionextendedkeyusage.h
+        x509/qopcuax509extensionkeyusage.cpp x509/qopcuax509extensionkeyusage.h
         x509/qopcuax509extensionsubjectalternativename.cpp
-        x509/qopcuax509utils.cpp
+        x509/qopcuax509extensionsubjectalternativename.h
+        x509/qopcuax509utils.cpp x509/qopcuax509utils_p.h
 )
 
-# special case begin
 if (QT_FEATURE_gds AND QT_FEATURE_ssl)
     qt_internal_extend_target(OpcUa
         LIBRARIES WrapOpenSSL::WrapOpenSSL)
 endif()
-# special case end
+
+if(MSVC)
+    target_compile_options(OpcUa PRIVATE /constexpr:steps3000000)
+endif()
 
 qt_internal_extend_target(OpcUa CONDITION NOT QT_FEATURE_ns0idnames
     DEFINES

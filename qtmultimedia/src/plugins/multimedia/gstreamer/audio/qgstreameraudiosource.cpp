@@ -17,7 +17,6 @@ Q_DECLARE_METATYPE(GstSample *);
 
 QT_BEGIN_NAMESPACE
 
-
 QGStreamerAudioSource::QGStreamerAudioSource(const QAudioDevice &device, QObject *parent)
     : QPlatformAudioSource(parent),
       m_info(device),
@@ -160,6 +159,7 @@ bool QGStreamerAudioSource::open()
 
     QGstElement conv("audioconvert", "conv");
     gstVolume = QGstElement("volume", "volume");
+    Q_ASSERT(gstVolume);
     if (m_volume != 1.)
         gstVolume.set("volume", m_volume);
 

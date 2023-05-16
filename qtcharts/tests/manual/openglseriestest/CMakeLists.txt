@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from openglseriestest.pro.
 
 #####################################################################
@@ -11,7 +14,7 @@ qt_internal_add_manual_test(openglseriestest
         datasource.cpp datasource.h
         main.cpp
         mainwindow.cpp mainwindow.h mainwindow.ui
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Charts
         Qt::Gui
         Qt::OpenGL

@@ -3,7 +3,9 @@
 
 #include "qssgrhicontext_p.h"
 #include <QtQuick3DUtils/private/qssgmesh_p.h>
+#include <QtQuick3DUtils/private/qssgassert_p.h>
 #include <QtQuick3DRuntimeRender/private/qssgrenderableimage_p.h>
+#include <QtQuick3DRuntimeRender/private/qssgrendermesh_p.h>
 #include <QtQuick3DUtils/private/qssgutils_p.h>
 #include <QtCore/QVariant>
 
@@ -44,7 +46,7 @@ QRhiVertexInputAttribute::Format QSSGRhiInputAssemblerState::toVertexInputFormat
         default:
             break;
         }
-    } else if (compType == QSSGRenderComponentType::UnsignedInteger32) {
+    } else if (compType == QSSGRenderComponentType::UnsignedInt32) {
         switch (numComps) {
         case 1:
             return QRhiVertexInputAttribute::UInt;
@@ -57,7 +59,7 @@ QRhiVertexInputAttribute::Format QSSGRhiInputAssemblerState::toVertexInputFormat
         default:
             break;
         }
-    } else if (compType == QSSGRenderComponentType::Integer32) {
+    } else if (compType == QSSGRenderComponentType::Int32) {
         switch (numComps) {
         case 1:
             return QRhiVertexInputAttribute::SInt;
@@ -90,11 +92,11 @@ QRhiGraphicsPipeline::Topology QSSGRhiInputAssemblerState::toTopology(QSSGRender
         return QRhiGraphicsPipeline::TriangleFan;
     case QSSGRenderDrawMode::Triangles:
         return QRhiGraphicsPipeline::Triangles;
-    default:
-        break;
+    case QSSGRenderDrawMode::LineLoop:
+        QSSG_ASSERT_X(false, "LineLoop draw mode is not supported", return QRhiGraphicsPipeline::Triangles);
     }
-    Q_ASSERT(false);
-    return QRhiGraphicsPipeline::Triangles;
+
+    Q_UNREACHABLE_RETURN(QRhiGraphicsPipeline::Triangles);
 }
 
 void QSSGRhiInputAssemblerState::bakeVertexInputLocations(const QSSGRhiShaderPipeline &shaders, int instanceBufferBinding)
@@ -162,11 +164,11 @@ QRhiGraphicsPipeline::CullMode QSSGRhiGraphicsPipelineState::toCullMode(QSSGCull
     case QSSGCullFaceMode::FrontAndBack:
         qWarning("FrontAndBack cull mode not supported");
         return QRhiGraphicsPipeline::None;
-    default:
-        break;
+    case QSSGCullFaceMode::Unknown:
+        return QRhiGraphicsPipeline::None;
     }
-    Q_ASSERT(false);
-    return QRhiGraphicsPipeline::None;
+
+    Q_UNREACHABLE_RETURN(QRhiGraphicsPipeline::None);
 }
 
 void QSSGRhiShaderPipeline::addStage(const QRhiShaderStage &stage, StageFlags flags)
@@ -854,7 +856,7 @@ void QSSGRhiShaderPipeline::setUniformArray(char *ubufData, const char *name, co
 
 void QSSGRhiShaderPipeline::ensureCombinedMainLightsUniformBuffer(QRhiBuffer **ubuf)
 {
-    const int totalBufferSize = m_ub0NextUBufOffset + int(sizeof(QSSGShaderLightsUniformData));
+    const quint32 totalBufferSize = m_ub0NextUBufOffset + sizeof(QSSGShaderLightsUniformData);
     if (!*ubuf) {
         *ubuf = m_context.rhi()->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, totalBufferSize);
         (*ubuf)->create();
@@ -890,28 +892,59 @@ int QSSGRhiShaderPipeline::bindingForTexture(const char *name, int hint)
 }
 
 QSSGRhiContext::QSSGRhiContext()
+    : m_stats(*this)
 {
     Q_STATIC_ASSERT(int(QSSGRhiSamplerBindingHints::LightProbe) > int(QSSGRenderableImage::Type::Occlusion));
 }
 
 QSSGRhiContext::~QSSGRhiContext()
 {
+    releaseCachedResources();
+
+    qDeleteAll(m_textures);
+    qDeleteAll(m_meshes);
+}
+
+void QSSGRhiContext::releaseCachedResources()
+{
     for (QSSGRhiDrawCallData &dcd : m_drawCallData)
         dcd.reset();
+
+    m_drawCallData.clear();
 
     qDeleteAll(m_pipelines);
     qDeleteAll(m_computePipelines);
     qDeleteAll(m_srbCache);
-    qDeleteAll(m_textures);
+    qDeleteAll(m_dummyTextures);
+
+    m_pipelines.clear();
+    m_computePipelines.clear();
+    m_srbCache.clear();
+    m_dummyTextures.clear();
+
     for (const auto &samplerInfo : std::as_const(m_samplers))
         delete samplerInfo.second;
+
+    m_samplers.clear();
+
+    for (const auto &particleData : std::as_const(m_particleData))
+        delete particleData.texture;
+
+    m_particleData.clear();
+
     for (const auto &instanceData : std::as_const(m_instanceBuffers)) {
         if (instanceData.owned)
             delete instanceData.buffer;
     }
-    for (const auto &particleData : std::as_const(m_particleData))
-        delete particleData.texture;
-    qDeleteAll(m_dummyTextures);
+
+    m_instanceBuffers.clear();
+
+    for (const auto &instanceData : std::as_const(m_instanceBuffersLod)) {
+        if (instanceData.owned)
+            delete instanceData.buffer;
+    }
+
+    m_instanceBuffersLod.clear();
 }
 
 void QSSGRhiContext::initialize(QRhi *rhi)
@@ -954,7 +987,10 @@ QRhiGraphicsPipeline *QSSGRhiContext::pipeline(const QSSGGraphicsPipelineStateKe
     ps->setShaderResourceBindings(srb);
     ps->setRenderPassDescriptor(rpDesc);
 
-    QRhiGraphicsPipeline::Flags flags; // ### QRhiGraphicsPipeline::UsesScissor -> we will need setScissor once this flag is set
+    QRhiGraphicsPipeline::Flags flags;
+    if (key.state.scissorEnable)
+        flags |= QRhiGraphicsPipeline::UsesScissor;
+
     static const bool shaderDebugInfo = qEnvironmentVariableIntValue("QT_QUICK3D_SHADER_DEBUG_INFO");
     if (shaderDebugInfo)
         flags |= QRhiGraphicsPipeline::CompileShadersWithDebugInfo;
@@ -980,6 +1016,7 @@ QRhiGraphicsPipeline *QSSGRhiContext::pipeline(const QSSGGraphicsPipelineStateKe
 
     ps->setDepthBias(key.state.depthBias);
     ps->setSlopeScaledDepthBias(key.state.slopeScaledDepthBias);
+    ps->setPolygonMode(key.state.polygonMode);
 
     if (!ps->create()) {
         qWarning("Failed to build graphics pipeline state");
@@ -1075,6 +1112,17 @@ void QSSGRhiContext::releaseTexture(QRhiTexture *texture)
     delete texture;
 }
 
+void QSSGRhiContext::registerMesh(QSSGRenderMesh *mesh)
+{
+    m_meshes.insert(mesh);
+}
+
+void QSSGRhiContext::releaseMesh(QSSGRenderMesh *mesh)
+{
+    m_meshes.remove(mesh);
+    delete mesh;
+}
+
 void QSSGRhiContext::cleanupDrawCallData(const QSSGRenderModel *model)
 {
     // Find all QSSGRhiUniformBufferSet that reference model
@@ -1121,6 +1169,76 @@ bool QSSGRhiContext::editorMode()
 {
     static const bool isSet = (qEnvironmentVariableIntValue("QT_QUICK3D_EDITORMODE") != 0);
     return isSet;
+}
+
+void QSSGRhiContextStats::start(QSSGRenderLayer *layer)
+{
+    layerKey = layer;
+    PerLayerInfo &info(perLayerInfo[layerKey]);
+    info.renderPasses.clear();
+    info.externalRenderPass = {};
+    info.currentRenderPassIndex = -1;
+}
+
+void QSSGRhiContextStats::stop(QSSGRenderLayer *layer)
+{
+    if (rendererDebugEnabled()) {
+        PerLayerInfo &info(perLayerInfo[layer]);
+        const int rpCount = info.renderPasses.size();
+        qDebug("%d render passes in 3D renderer %p", rpCount, layer);
+        for (int i = 0; i < rpCount; ++i) {
+            const RenderPassInfo &rp(info.renderPasses[i]);
+            qDebug("Render pass %d: rt name='%s' target size %dx%d pixels",
+                   i, rp.rtName.constData(), rp.pixelSize.width(), rp.pixelSize.height());
+            printRenderPass(rp);
+        }
+        if (info.externalRenderPass.indexedDraws.callCount || info.externalRenderPass.instancedIndexedDraws.callCount
+                || info.externalRenderPass.draws.callCount || info.externalRenderPass.instancedDraws.callCount)
+        {
+            qDebug("Within external render passes:");
+            printRenderPass(info.externalRenderPass);
+        }
+    }
+
+    // a new start() may preceed stop() for the previous View3D, must handle this gracefully
+    if (layerKey == layer)
+        layerKey = nullptr;
+
+    // The data must stay valid until the next start() with the same key, the
+    // QQuick3DRenderStats and DebugView may read it.
+}
+
+void QSSGRhiContextStats::cleanupLayerInfo(QSSGRenderLayer *layer)
+{
+    perLayerInfo.remove(layer);
+    dynamicDataSources.remove(layer);
+}
+
+void QSSGRhiContextStats::beginRenderPass(QRhiTextureRenderTarget *rt)
+{
+    PerLayerInfo &info(perLayerInfo[layerKey]);
+    info.renderPasses.append({ rt->name(), rt->pixelSize(), {}, {}, {}, {} });
+    info.currentRenderPassIndex = info.renderPasses.size() - 1;
+}
+
+void QSSGRhiContextStats::endRenderPass()
+{
+    PerLayerInfo &info(perLayerInfo[layerKey]);
+    info.currentRenderPassIndex = -1;
+}
+
+void QSSGRhiContextStats::printRenderPass(const QSSGRhiContextStats::RenderPassInfo &rp)
+{
+    qDebug("%llu indexed draw calls with %llu indices in total, "
+           "%llu non-indexed draw calls with %llu vertices in total",
+           rp.indexedDraws.callCount, rp.indexedDraws.vertexOrIndexCount,
+           rp.draws.callCount, rp.draws.vertexOrIndexCount);
+    if (rp.instancedIndexedDraws.callCount || rp.instancedDraws.callCount) {
+        qDebug("%llu instanced indexed draw calls with %llu indices and %llu instances in total, "
+               "%llu instanced non-indexed draw calls with %llu indices and %llu instances in total",
+               rp.instancedIndexedDraws.callCount, rp.instancedIndexedDraws.vertexOrIndexCount, rp.instancedIndexedDraws.instanceCount,
+               rp.instancedDraws.callCount, rp.instancedDraws.vertexOrIndexCount, rp.instancedDraws.instanceCount);
+    }
 }
 
 QT_END_NAMESPACE

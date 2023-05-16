@@ -1,4 +1,4 @@
-// Copyright 2014 The Chromium Authors. All rights reserved.
+// Copyright 2014 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_utils.h"
@@ -107,7 +108,7 @@ void Headers::append(ScriptState* script_state,
   }
   // "4. Otherwise, if guard is |request| and |name| is a forbidden header
   //     name, return."
-  if (guard_ == kRequestGuard && cors::IsForbiddenHeaderName(name))
+  if (guard_ == kRequestGuard && cors::IsForbiddenRequestHeader(name, value))
     return;
   // 5. Otherwise, if guard is |request-no-cors|:
   if (guard_ == kRequestNoCorsGuard) {
@@ -164,9 +165,9 @@ void Headers::remove(ScriptState* script_state,
     UseCounter::Count(execution_context,
                       WebFeature::kFetchSetCookieInRequestGuardedHeaders);
   }
-  // "3. Otherwise, if guard is |request| and |name| is a forbidden header
-  //     name, return."
-  if (guard_ == kRequestGuard && cors::IsForbiddenHeaderName(name))
+  // "3. Otherwise, if guard is |request| and (|name|, '') is a forbidden
+  //     request header, return."
+  if (guard_ == kRequestGuard && cors::IsForbiddenRequestHeader(name, ""))
     return;
   // "4. Otherwise, if the context object’s guard is |request-no-cors|, |name|
   //     is not a no-CORS-safelisted request-header name, and |name| is not a
@@ -248,9 +249,9 @@ void Headers::set(ScriptState* script_state,
     UseCounter::Count(execution_context,
                       WebFeature::kFetchSetCookieInRequestGuardedHeaders);
   }
-  // "4. Otherwise, if guard is |request| and |name| is a forbidden header
-  //     name, return."
-  if (guard_ == kRequestGuard && cors::IsForbiddenHeaderName(name))
+  // "4. Otherwise, if guard is |request| and (|name|, |value|) is a forbidden
+  //     request header, return."
+  if (guard_ == kRequestGuard && cors::IsForbiddenRequestHeader(name, value))
     return;
   // "5. Otherwise, if guard is |request-no-CORS| and |name|/|value| is not a
   //     no-CORS-safelisted header, return."

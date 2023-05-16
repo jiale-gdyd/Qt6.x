@@ -70,15 +70,6 @@ void FileCopier::showProgress(int done, int total,
 //! [4]
 
 
-//! [5]
-QString s1 = "%1 of %2 files copied. Copying: %3";
-QString s2 = "Kopierer nu %3. Av totalt %2 filer er %1 kopiert.";
-
-qDebug() << s1.arg(5).arg(10).arg("somefile.txt");
-qDebug() << s2.arg(5).arg(10).arg("somefile.txt");
-//! [5]
-
-
 //! [8]
 int main(int argc, char *argv[])
 {
@@ -107,18 +98,6 @@ QByteArray encodedString = ...; // some ISO 8859-5 encoded text
 QTextCodec *codec = QTextCodec::codecForName("ISO 8859-5");
 QString string = codec->toUnicode(encodedString);
 //! [10]
-
-
-//! [11]
-void Clock::setTime(const QTime &time)
-{
-    if (tr("AMPM") == "AMPM") {
-        // 12-hour clock
-    } else {
-        // 24-hour clock
-    }
-}
-//! [11]
 
 
 //! [12]
@@ -157,3 +136,55 @@ void same_global_function(LoginWidget *logwid)
         app.installTranslator(&qtTranslator);
     }
 //! [14]
+
+//! [15]
+
+class MyItem : public QQuickItem
+{
+    Q_OJBECT
+    QML_ELEMENT
+
+    Q_PROPERTY(QString greeting READ greeting NOTIFY greetingChanged)
+
+public signals:
+    void greetingChanged();
+public:
+    QString greeting() const
+    {
+        return tr("Hello World!");
+    }
+
+    bool event(QEvent *ev) override
+    {
+        if (ev->type() == QEvent::LanguageChange)
+            emit greetingChanged();
+        return QQuickItem::event(ev);
+    }
+};
+//! [15]
+
+
+//! [16]
+class CustomObject : public QObject
+{
+    Q_OBJECT
+
+public:
+    QList<QQuickItem *> managedItems;
+
+    CustomObject(QOject *parent = nullptr) : QObject(parent)
+    {
+        QCoreApplication::instance()->installEventFilter(this);
+    }
+
+    bool eventFilter(QObject *obj, QEvent *ev) override
+    {
+        if (obj == QCoreApplication::instance() && ev->type() == QEvent::LanguageChange) {
+            for (auto item : std::as_const(managedItems))
+                QCoreApplication::sendEvent(item, ev);
+            // do any further work on reaction, e.g. emit changed signals
+        }
+        return false;
+    }
+};
+//! [16]

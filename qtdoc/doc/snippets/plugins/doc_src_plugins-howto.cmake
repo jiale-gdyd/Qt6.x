@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #! [import_plugins]
 qt_import_plugins(myapp INCLUDE Qt::QLibInputPlugin)
 #! [import_plugins]

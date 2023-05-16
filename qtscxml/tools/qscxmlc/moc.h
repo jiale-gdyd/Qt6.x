@@ -11,7 +11,7 @@
 #include <QtCore/qjsonarray.h>
 // -- QtScxml
 
-#include <ctype.h>
+#include <private/qtools_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -108,7 +108,7 @@ struct PropertyDef
 {
     bool stdCppSet() const {
         QByteArray s("set");
-        s += toupper(name[0]);
+        s += QtMiscUtils::toAsciiUpper(name[0]);
         s += name.mid(1);
         return (s == write);
     }
@@ -121,6 +121,7 @@ struct PropertyDef
     bool constant = false;
     bool final = false;
     bool required = false;
+    int relativeIndex = -1; // property index in current metaobject
 
     int location = -1; // token index, used for error reporting
 
@@ -249,7 +250,7 @@ public:
     void parseSignals(ClassDef *def);
     void parseProperty(ClassDef *def);
     void parsePluginData(ClassDef *def);
-    void createPropertyDef(PropertyDef &def);
+    void createPropertyDef(PropertyDef &def, int propertyIndex);
     void parsePropertyAttributes(PropertyDef &propDef);
     void parseEnumOrFlag(BaseDef *def, bool isFlag);
     void parseFlag(BaseDef *def);

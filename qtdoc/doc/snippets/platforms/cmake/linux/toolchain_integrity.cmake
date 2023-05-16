@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 set(TARGET_ROOT_PATH "/work/ghs/sa8155/es7/es7_dev_env/hlos_dev_boot")
 set(CMAKE_BUILD_TYPE "Release")
 

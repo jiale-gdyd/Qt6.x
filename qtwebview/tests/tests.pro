@@ -7,4 +7,4 @@ android|ios|winrt {
 }
 
 SUBDIRS += \
-    manual/inquickwidget
+    manual/tst_quickwidget

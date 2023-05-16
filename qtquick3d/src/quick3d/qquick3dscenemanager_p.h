@@ -38,23 +38,23 @@ public:
     ~QQuick3DWindowAttachment() override;
 
     Q_INVOKABLE void preSync();
+    Q_INVOKABLE void cleanupResources();
     Q_INVOKABLE void synchronize(QSSGRenderContextInterface *rci, QSet<QSSGRenderGraphObject *> &resourceLoaders);
 
     QQuickWindow *window() const;
 
-    void registerSceneManager(QQuick3DSceneManager &manager)
-    {
-        if (!sceneManagers.contains(&manager))
-            sceneManagers.push_back(&manager);
-    }
+    void registerSceneManager(QQuick3DSceneManager &manager);
+    void unregisterSceneManager(QQuick3DSceneManager &manager);
 
-    void unregisterSceneManager(QQuick3DSceneManager &manager)
-    {
-        sceneManagers.removeAll(&manager);
-    }
+    void queueForCleanup(QSSGRenderGraphObject *obj);
+    void queueForCleanup(QQuick3DSceneManager *manager);
 
 private:
+    QSSGRenderContextInterface *rci = nullptr;
     QList<QQuick3DSceneManager *> sceneManagers;
+    QList<QQuick3DSceneManager *> sceneManagerCleanupQueue;
+    QList<QSSGRenderGraphObject *> pendingResourceCleanupQueue;
+    QSet<QSSGRenderGraphObject *> resourceCleanupQueue;
 };
 
 class Q_QUICK3D_PRIVATE_EXPORT QQuick3DSceneManager : public QObject
@@ -79,19 +79,50 @@ public:
     bool updateDirtyResourceNodes();
     void updateDirtySpatialNodes();
 
-    void updateDirtyNode(QQuick3DObject *object);
     void updateDirtyResource(QQuick3DObject *resourceObject);
     void updateDirtySpatialNode(QQuick3DNode *spatialNode);
     void updateBoundingBoxes(const QSSGRef<QSSGBufferManager> &mgr);
-    static QQuick3DWindowAttachment *getOrSetWindowAttachment(QQuickWindow &window);
 
     QQuick3DObject *lookUpNode(const QSSGRenderGraphObject *node) const;
 
-    QQuick3DObject *dirtySpatialNodeList;
-    QQuick3DObject *dirtyResourceList;
-    QQuick3DObject *dirtyImageList;
-    QQuick3DObject *dirtyTextureDataList;
-    QList<QQuick3DObject *> dirtyLightList;
+    // Where the enumerator is placed will decide the priority it gets.
+    // NOTE: Place new list types before 'Count'.
+    // NOTE: InstanceNodes are nodes that have an instance root set, we'll process these
+    // after the other nodes but before light nodes; this implies that lights are not good candidates
+    // for being instance roots...
+    enum class NodePriority { Skeleton, Other, ModelWithInstanceRoot, Lights, Count };
+    enum class ResourcePriority { TextureData, Texture, Other, Count };
+
+    static inline size_t resourceListIndex(QSSGRenderGraphObject::Type type)
+    {
+        Q_ASSERT(!QSSGRenderGraphObject::isNodeType(type));
+
+        if (QSSGRenderGraphObject::isTexture(type))
+            return size_t(ResourcePriority::Texture);
+
+        if (type == QSSGRenderGraphObject::Type::TextureData)
+            return size_t(ResourcePriority::TextureData);
+
+        return size_t(ResourcePriority::Other);
+    }
+
+    static inline size_t nodeListIndex(QSSGRenderGraphObject::Type type)
+    {
+        Q_ASSERT(QSSGRenderGraphObject::isNodeType(type));
+
+        if (QSSGRenderGraphObject::isLight(type))
+            return size_t(NodePriority::Lights);
+
+        if (type == QSSGRenderGraphObject::Type::Skeleton)
+            return size_t(NodePriority::Skeleton);
+
+        return size_t(NodePriority::Other);
+    }
+
+    static QQuick3DWindowAttachment *getOrSetWindowAttachment(QQuickWindow &window);
+
+    QQuick3DObject *dirtyResources[size_t(ResourcePriority::Count)] {};
+    QQuick3DObject *dirtyNodes[size_t(NodePriority::Count)] {};
 
     QList<QQuick3DObject *> dirtyBoundingBoxList;
     QList<QSSGRenderGraphObject *> cleanupNodeList;
@@ -111,7 +142,8 @@ Q_SIGNALS:
     void windowChanged();
 
 private Q_SLOTS:
-    bool updateNodes(QQuick3DObject **listHead);
+    bool updateResources(QQuick3DObject **listHead);
+    void updateNodes(QQuick3DObject **listHead);
 };
 
 QT_END_NAMESPACE

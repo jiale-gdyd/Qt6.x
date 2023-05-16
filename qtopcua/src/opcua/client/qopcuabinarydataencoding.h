@@ -19,10 +19,11 @@
 #include <QtOpcUa/qopcuaxvalue.h>
 
 #include <QtCore/qdatetime.h>
-#include <QtCore/qmetatype.h>
-#include <QtCore/quuid.h>
 #include <QtCore/qendian.h>
 #include <QtCore/qlist.h>
+#include <QtCore/qmetatype.h>
+#include <QtCore/qtimezone.h>
+#include <QtCore/quuid.h>
 
 #include <limits>
 
@@ -119,7 +120,7 @@ inline QString QOpcUaBinaryDataEncoding::decode<QString>(bool &success)
 
     const auto length = decode<qint32>(success);
 
-    if (length > 0 && !enoughData(static_cast<size_t>(length))) {
+    if (length > 0 && !enoughData(length)) {
         success = false;
         return QString();
     }
@@ -476,7 +477,7 @@ inline QDateTime QOpcUaBinaryDataEncoding::decode<QDateTime>(bool &success)
         return QDateTime();
 
     // OPC-UA part 6, 5.2.2.5
-    const QDateTime epochStart(QDate(1601, 1, 1), QTime(0, 0), Qt::UTC);
+    const QDateTime epochStart(QDate(1601, 1, 1), QTime(0, 0), QTimeZone::UTC);
     return epochStart.addMSecs(timestamp / 10000);
 }
 
@@ -580,7 +581,7 @@ inline bool QOpcUaBinaryDataEncoding::encode<QString>(const QString &src)
         return false;
 
     QByteArray arr = src.toUtf8();
-    if (!encode<qint32>(arr.isNull() ? -1 : arr.size()))
+    if (!encode<qint32>(arr.isNull() ? -1 : int(arr.size())))
         return false;
     m_data->append(arr);
     return true;
@@ -710,7 +711,7 @@ inline bool QOpcUaBinaryDataEncoding::encode<QByteArray>(const QByteArray &src)
     if (src.size() > upperBound<qint32>())
         return false;
 
-    if (!encode<qint32>(src.isNull() ? -1 : src.size()))
+    if (!encode<qint32>(src.isNull() ? -1 : int(src.size())))
         return false;
     if (src.size() > 1)
         m_data->append(src);
@@ -868,7 +869,7 @@ inline bool QOpcUaBinaryDataEncoding::encode<QDateTime>(const QDateTime &src)
         return true;
     }
 
-    const QDateTime uaEpochStart(QDate(1601, 1, 1), QTime(0, 0), Qt::UTC);
+    const QDateTime uaEpochStart(QDate(1601, 1, 1), QTime(0, 0), QTimeZone::UTC);
 
     if (src <= uaEpochStart) {
         if (!encode<qint64>(0))
@@ -953,7 +954,7 @@ inline bool QOpcUaBinaryDataEncoding::encodeArray(const QList<T> &src)
     if (src.size() > upperBound<qint32>())
         return false;
 
-    if (!encode<qint32>(src.size()))
+    if (!encode<qint32>(int(src.size())))
         return false;
     for (const auto &element : src) {
         if (!encode<T, OVERLAY>(element))

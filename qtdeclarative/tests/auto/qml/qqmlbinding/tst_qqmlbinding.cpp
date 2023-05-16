@@ -37,6 +37,7 @@ private slots:
     void bindNaNToInt();
     void intOverflow();
     void generalizedGroupedProperties();
+    void localSignalHandler();
 
 private:
     QQmlEngine engine;
@@ -147,8 +148,11 @@ void tst_qqmlbinding::restoreBindingValue()
 {
     QQmlEngine engine;
     QQmlComponent c(&engine, testFileUrl("restoreBinding2.qml"));
-    QScopedPointer<QQuickRectangle> rect(qobject_cast<QQuickRectangle*>(c.create()));
-    QVERIFY(!rect.isNull());
+    QVERIFY2(c.isReady(), qPrintable(c.errorString()));
+    QScopedPointer<QObject> o(c.create());
+    QVERIFY(!o.isNull());
+    QQuickRectangle *rect = qobject_cast<QQuickRectangle*>(o.data());
+    QVERIFY(rect);
 
     auto myItem = qobject_cast<QQuickRectangle*>(rect->findChild<QQuickRectangle*>("myItem"));
     QVERIFY(myItem != nullptr);
@@ -171,8 +175,11 @@ void tst_qqmlbinding::restoreBindingVarValue()
 {
     QQmlEngine engine;
     QQmlComponent c(&engine, testFileUrl("restoreBinding3.qml"));
-    QScopedPointer<QQuickRectangle> rect(qobject_cast<QQuickRectangle*>(c.create()));
-    QVERIFY(!rect.isNull());
+    QVERIFY2(c.isReady(), qPrintable(c.errorString()));
+    QScopedPointer<QObject> o(c.create());
+    QVERIFY(!o.isNull());
+    QQuickRectangle *rect = qobject_cast<QQuickRectangle*>(o.data());
+    QVERIFY(rect);
 
     auto myItem = qobject_cast<QQuickRectangle*>(rect->findChild<QQuickRectangle*>("myItem"));
     QVERIFY(myItem != nullptr);
@@ -195,8 +202,11 @@ void tst_qqmlbinding::restoreBindingJSValue()
 {
     QQmlEngine engine;
     QQmlComponent c(&engine, testFileUrl("restoreBinding4.qml"));
-    QScopedPointer<QQuickRectangle> rect(qobject_cast<QQuickRectangle*>(c.create()));
-    QVERIFY(!rect.isNull());
+    QVERIFY2(c.isReady(), qPrintable(c.errorString()));
+    QScopedPointer<QObject> o(c.create());
+    QVERIFY(!o.isNull());
+    QQuickRectangle *rect = qobject_cast<QQuickRectangle*>(o.data());
+    QVERIFY(rect);
 
     auto myItem = qobject_cast<QQuickRectangle*>(rect->findChild<QQuickRectangle*>("myItem"));
     QVERIFY(myItem != nullptr);
@@ -570,6 +580,17 @@ void tst_qqmlbinding::generalizedGroupedProperties()
     QCOMPARE(root->objectName(), QStringLiteral("foo"));
     // root->property("i").toInt() is still unspecified.
     QCOMPARE(rootAttached->objectName(), QString());
+}
+
+void tst_qqmlbinding::localSignalHandler()
+{
+    QQmlEngine e;
+    QQmlComponent c(&e, testFileUrl("bindingWithHandler.qml"));
+    QVERIFY2(c.isReady(), qPrintable(c.errorString()));
+    QScopedPointer<QObject> o(c.create());
+    QVERIFY(!o.isNull());
+    o->setProperty("input", QStringLiteral("abc"));
+    QCOMPARE(o->property("output").toString(), QStringLiteral("abc"));
 }
 
 QTEST_MAIN(tst_qqmlbinding)

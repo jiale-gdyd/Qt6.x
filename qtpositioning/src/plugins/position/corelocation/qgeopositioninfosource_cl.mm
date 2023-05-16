@@ -3,8 +3,10 @@
 
 #include <QTimerEvent>
 #include <QDebug>
+#include <QtCore/qdatetime.h>
 #include <QtCore/qglobal.h>
 #include <QtCore/private/qglobal_p.h>
+#include <QtCore/qtimezone.h>
 
 #include "qgeopositioninfosource_cl_p.h"
 
@@ -38,7 +40,8 @@
 
     // Convert location timestamp to QDateTime
     NSTimeInterval locationTimeStamp = [newLocation.timestamp timeIntervalSince1970];
-    const QDateTime timeStamp = QDateTime::fromMSecsSinceEpoch(qRound64(locationTimeStamp * 1000), Qt::UTC);
+    const QDateTime timeStamp = QDateTime::fromMSecsSinceEpoch(qRound64(locationTimeStamp * 1000),
+                                                               QTimeZone::UTC);
 
     // Construct position info from location data
     QGeoPositionInfo location(QGeoCoordinate(newLocation.coordinate.latitude,
@@ -49,10 +52,9 @@
         location.setAttribute(QGeoPositionInfo::HorizontalAccuracy, newLocation.horizontalAccuracy);
     if (newLocation.verticalAccuracy >= 0)
         location.setAttribute(QGeoPositionInfo::VerticalAccuracy, newLocation.verticalAccuracy);
-#ifndef Q_OS_TVOS
     if (newLocation.course >= 0) {
         location.setAttribute(QGeoPositionInfo::Direction, newLocation.course);
-        if (__builtin_available(iOS 13.4, watchOS 6.2, macOS 10.15.4, *)) {
+        if (__builtin_available(iOS 13.4, macOS 10.15.4, *)) {
             if (newLocation.courseAccuracy >= 0) {
                 location.setAttribute(QGeoPositionInfo::DirectionAccuracy,
                                       newLocation.courseAccuracy);
@@ -61,7 +63,6 @@
     }
     if (newLocation.speed >= 0)
         location.setAttribute(QGeoPositionInfo::GroundSpeed, newLocation.speed);
-#endif
 
     m_positionInfoSource->locationDataAvailable(location);
 }
@@ -117,17 +118,15 @@ bool QGeoPositionInfoSourceCL::enableLocationManager()
     if (!m_locationManager) {
         m_locationManager = [[CLLocationManager alloc] init];
 
-#if defined(Q_OS_IOS) || defined(Q_OS_WATCHOS)
-        if (__builtin_available(watchOS 4.0, *)) {
-            NSDictionary<NSString *, id> *infoDict = [[NSBundle mainBundle] infoDictionary];
-            if (id value = [infoDict objectForKey:@"UIBackgroundModes"]) {
-                if ([value isKindOfClass:[NSArray class]]) {
-                    NSArray *modes = static_cast<NSArray *>(value);
-                    for (id mode in modes) {
-                        if ([@"location" isEqualToString:mode]) {
-                            m_locationManager.allowsBackgroundLocationUpdates = YES;
-                            break;
-                        }
+#if defined(Q_OS_IOS)
+        NSDictionary<NSString *, id> *infoDict = [[NSBundle mainBundle] infoDictionary];
+        if (id value = [infoDict objectForKey:@"UIBackgroundModes"]) {
+            if ([value isKindOfClass:[NSArray class]]) {
+                NSArray *modes = static_cast<NSArray *>(value);
+                for (id mode in modes) {
+                    if ([@"location" isEqualToString:mode]) {
+                        m_locationManager.allowsBackgroundLocationUpdates = YES;
+                        break;
                     }
                 }
             }
@@ -136,27 +135,22 @@ bool QGeoPositionInfoSourceCL::enableLocationManager()
 
         m_locationManager.desiredAccuracy = kCLLocationAccuracyBest;
         m_locationManager.delegate = [[PositionLocationDelegate alloc] initWithInfoSource:this];
-
-        // -requestAlwaysAuthorization is available on iOS (>= 8.0) and watchOS (>= 2.0).
-        // This method requires both NSLocationAlwaysAndWhenInUseUsageDescription and
-        // NSLocationWhenInUseUsageDescription entries present in Info.plist (otherwise,
-        // while probably a noop, the call generates a warning).
-        // -requestWhenInUseAuthorization only requires NSLocationWhenInUseUsageDescription
-        // entry in Info.plist (available on iOS (>= 8.0), tvOS (>= 9.0) and watchOS (>= 2.0).
     }
 
-#ifndef Q_OS_MACOS
+    // -requestAlwaysAuthorization requires both NSLocationAlwaysAndWhenInUseUsageDescription and
+    // NSLocationWhenInUseUsageDescription entries present in Info.plist (otherwise,
+    // while probably a noop, the call generates a warning).
+    // -requestWhenInUseAuthorization only requires NSLocationWhenInUseUsageDescription
+    // entry in Info.plist
+#ifdef Q_OS_IOS
     NSDictionary<NSString *, id> *infoDict = NSBundle.mainBundle.infoDictionary;
     const bool hasAlwaysUseUsage = !![infoDict objectForKey:@"NSLocationAlwaysAndWhenInUseUsageDescription"];
     const bool hasWhenInUseUsage = !![infoDict objectForKey:@"NSLocationWhenInUseUsageDescription"];
-#ifndef Q_OS_TVOS
     if (hasAlwaysUseUsage && hasWhenInUseUsage)
         [m_locationManager requestAlwaysAuthorization];
-    else
-#endif // !Q_OS_TVOS
-    if (hasWhenInUseUsage)
+    else if (hasWhenInUseUsage)
         [m_locationManager requestWhenInUseAuthorization];
-#endif // !Q_OS_MACOS
+#endif // Q_OS_IOS
 
     return (m_locationManager != nullptr);
 }
@@ -174,11 +168,7 @@ void QGeoPositionInfoSourceCL::startUpdates()
     m_positionError = QGeoPositionInfoSource::NoError;
     m_updatesWanted = true;
     if (enableLocationManager()) {
-#ifdef Q_OS_TVOS
-        [m_locationManager requestLocation];    // service will run long enough for one location update
-#else
         [m_locationManager startUpdatingLocation];
-#endif
         setTimeoutInterval(m_updateTimeout);
     } else {
         setError(QGeoPositionInfoSource::AccessError);
@@ -207,12 +197,7 @@ void QGeoPositionInfoSourceCL::requestUpdate(int timeout)
     else if (enableLocationManager()) {
         // This will force LM to generate a new update
         [m_locationManager stopUpdatingLocation];
-#ifdef Q_OS_TVOS
-        [m_locationManager requestLocation];    // service will run long enough for one location update
-#else
         [m_locationManager startUpdatingLocation];
-#endif
-
         setTimeoutInterval(timeout);
     } else {
         setError(QGeoPositionInfoSource::AccessError);

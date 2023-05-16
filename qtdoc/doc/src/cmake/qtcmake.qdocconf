@@ -34,10 +34,13 @@ depends += \
     qtinterfaceframework \
     qtlinguist \
     qtnetwork \
+    qtprotobuf \
+    qtgrpc \
     qtqml \
     qtquick \
     qtremoteobjects \
     qtscxml \
+    qtshadertools \
     qtsql \
     qtwebengine \
     qtwidgets \

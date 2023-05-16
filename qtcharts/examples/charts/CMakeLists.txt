@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 if(QT_FEATURE_charts_area_chart)
     qt_internal_add_example(areachart)
 endif()
@@ -11,6 +14,7 @@ if(QT_FEATURE_charts_line_chart)
     qt_internal_add_example(logvalueaxis)
     qt_internal_add_example(modeldata)
     qt_internal_add_example(zoomlinechart)
+    qt_internal_add_example(pointconfiguration)
 endif()
 if(QT_FEATURE_charts_spline_chart)
     qt_internal_add_example(dynamicspline)

@@ -50,17 +50,6 @@ static void initBaker(QShaderBaker *baker, QRhi *rhi)
     baker->setGeneratedShaderVariants({ QShader::StandardShader });
 }
 
-static QQsbShaderFeatureSet toQsbShaderFeatureSet(const QSSGShaderFeatures &featureSet)
-{
-    QQsbShaderFeatureSet ret;
-    for (quint32 i = 0, end = QSSGShaderFeatures::Count; i != end; ++i) {
-        auto def = QSSGShaderFeatures::fromIndex(i);
-        if (featureSet.isSet(def))
-            ret.insert(QSSGShaderFeatures::asDefineString(def), true);
-    }
-    return ret;
-}
-
 GenShaders::GenShaders()
 {
     sceneManager = new QQuick3DSceneManager;
@@ -201,8 +190,8 @@ bool GenShaders::process(const MaterialParser::SceneData &sceneData,
     QQuick3DRenderLayerHelpers::updateLayerNodeHelper(*view3D, layer, aaIsDirty, temporalIsDirty, ssaaMultiplier);
 
     const QString outCollectionFile = outputFolder + QString::fromLatin1(QSSGShaderCache::shaderCollectionFile());
-    QQsbCollection qsbc(outCollectionFile);
-    if (!dryRun && !qsbc.map(QQsbCollection::Write))
+    QQsbIODeviceCollection qsbc(outCollectionFile);
+    if (!dryRun && !qsbc.map(QQsbIODeviceCollection::Write))
         return false;
 
     QByteArray shaderString;
@@ -211,7 +200,7 @@ bool GenShaders::process(const MaterialParser::SceneData &sceneData,
         layer.addChild(model);
         layerData.prepareForRender();
 
-        const auto &features = layerData.features;
+        const auto &features = layerData.getShaderFeatures();
 
         auto &materialPropertis = layerData.renderer->defaultMaterialShaderKeyProperties();
 
@@ -222,40 +211,41 @@ bool GenShaders::process(const MaterialParser::SceneData &sceneData,
             renderable = layerData.transparentObjects.at(0).obj;
 
         auto generateShader = [&](const QSSGShaderFeatures &features) {
-            if (renderable->renderableFlags.testFlag(QSSGRenderableObjectFlag::DefaultMaterialMeshSubset)) {
+            if ((renderable->type == QSSGSubsetRenderable::Type::DefaultMaterialMeshSubset)) {
                 auto shaderPipeline = QSSGRenderer::generateRhiShaderPipelineImpl(*static_cast<QSSGSubsetRenderable *>(renderable), shaderLibraryManager, shaderCache, shaderProgramGenerator, materialPropertis, features, shaderString);
                 if (!shaderPipeline.isNull()) {
-                    const size_t hkey = QSSGShaderCacheKey::generateHashCode(shaderString, features);
+                    const auto qsbcFeatureList = QQsbCollection::toFeatureSet(features);
+                    const QByteArray qsbcKey = QQsbCollection::EntryDesc::generateSha(shaderString, qsbcFeatureList);
                     const auto vertexStage = shaderPipeline->vertexStage();
                     const auto fragmentStage = shaderPipeline->fragmentStage();
                     if (vertexStage && fragmentStage) {
                         if (dryRun)
                             qDryRunPrintQsbcAdd(shaderString);
                         else
-                            qsbc.addQsbEntry(shaderString, toQsbShaderFeatureSet(features), vertexStage->shader(), fragmentStage->shader(), hkey);
+                            qsbc.addEntry(qsbcKey, { shaderString, qsbcFeatureList, vertexStage->shader(), fragmentStage->shader() });
                     }
                 }
-            } else if (renderable->renderableFlags.testFlag(QSSGRenderableObjectFlag::CustomMaterialMeshSubset)) {
+            } else if ((renderable->type == QSSGSubsetRenderable::Type::CustomMaterialMeshSubset)) {
                 Q_ASSERT(layerData.camera);
                 QSSGSubsetRenderable &cmr(static_cast<QSSGSubsetRenderable &>(*renderable));
-                const auto &rhiContext = renderContext->rhiContext();
-                const auto pipelineState = rhiContext->graphicsPipelineState(&layerData);
+                auto pipelineState = layerData.getPipelineState();
                 const auto &cms = renderContext->customMaterialSystem();
-                auto shaderPipeline = cms->shadersForCustomMaterial(pipelineState,
+                auto shaderPipeline = cms->shadersForCustomMaterial(&pipelineState,
                                                                     cmr.customMaterial(),
                                                                     cmr,
                                                                     features);
 
                 if (shaderPipeline) {
                     shaderString = cmr.customMaterial().m_shaderPathKey;
-                    const size_t hkey = QSSGShaderCacheKey::generateHashCode(shaderString, features);
+                    const auto qsbcFeatureList = QQsbCollection::toFeatureSet(features);
+                    const QByteArray qsbcKey = QQsbCollection::EntryDesc::generateSha(shaderString, qsbcFeatureList);
                     const auto vertexStage = shaderPipeline->vertexStage();
                     const auto fragmentStage = shaderPipeline->fragmentStage();
                     if (vertexStage && fragmentStage) {
                         if (dryRun)
                             qDryRunPrintQsbcAdd(shaderString);
                         else
-                            qsbc.addQsbEntry(shaderString, toQsbShaderFeatureSet(features), vertexStage->shader(), fragmentStage->shader(), hkey);
+                            qsbc.addEntry(qsbcKey, { shaderString, qsbcFeatureList, vertexStage->shader(), fragmentStage->shader() });
                     }
                 }
             }
@@ -307,7 +297,8 @@ bool GenShaders::process(const MaterialParser::SceneData &sceneData,
         nodes.append(renderEffect);
 
         const auto &commands = renderEffect->commands;
-        for (const auto &command : commands) {
+        for (const QSSGRenderEffect::Command &c : commands) {
+            QSSGCommand *command = c.command;
             if (command->m_type == CommandType::BindShader) {
                 auto bindShaderCommand = static_cast<const QSSGBindShader &>(*command);
                 for (const auto isYUpInFramebuffer : { true, false }) { // Generate effects for both up-directions.
@@ -318,15 +309,16 @@ bool GenShaders::process(const MaterialParser::SceneData &sceneData,
                                                                                           isYUpInFramebuffer);
                     if (shaderPipeline) {
                         const auto &key = bindShaderCommand.m_shaderPathKey;
-                        const size_t hkey = bindShaderCommand.m_hkey;
-                        Q_ASSERT(hkey != 0);
+                        const QSSGShaderFeatures features = shaderLibraryManager->getShaderMetaData(key, QSSGShaderCache::ShaderType::Fragment).features;
+                        const auto qsbcFeatureList = QQsbCollection::toFeatureSet(features);
+                        QByteArray qsbcKey = QQsbCollection::EntryDesc::generateSha(key, qsbcFeatureList);
                         const auto vertexStage = shaderPipeline->vertexStage();
                         const auto fragmentStage = shaderPipeline->fragmentStage();
                         if (vertexStage && fragmentStage) {
                             if (dryRun)
                                 qDryRunPrintQsbcAdd(key);
                             else
-                                qsbc.addQsbEntry(key, toQsbShaderFeatureSet(QSSGShaderFeatures()), vertexStage->shader(), fragmentStage->shader(), hkey);
+                                qsbc.addEntry(qsbcKey, { key, qsbcFeatureList, vertexStage->shader(), fragmentStage->shader() });
                         }
                     }
                 }
@@ -349,7 +341,7 @@ bool GenShaders::process(const MaterialParser::SceneData &sceneData,
     for (const auto &effect : std::as_const(sceneData.effects))
         generateEffectShader(*effect);
 
-    if (!qsbc.getEntries().isEmpty())
+    if (!qsbc.availableEntries().isEmpty())
         qsbcFiles.push_back(resourceFolderRelative + QDir::separator() + QString::fromLatin1(QSSGShaderCache::shaderCollectionFile()));
     qsbc.unmap();
 

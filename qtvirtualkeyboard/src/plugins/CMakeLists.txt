@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 set(plugins_imports)
 if(QT_FEATURE_cerence_sdk)
     add_subdirectory(cerence)

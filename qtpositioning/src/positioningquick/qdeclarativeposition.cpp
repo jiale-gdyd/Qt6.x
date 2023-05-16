@@ -39,8 +39,8 @@ QT_BEGIN_NAMESPACE
 
     \section2 Example Usage
 
-    See the example given for the \l{PositionSource} type, or the
-    \l{geoflickr}{GeoFlickr} example application.
+    See the example given for the \l {PositionSource} type, or the
+    \l {satelliteinfo}{SatelliteInfo} example application.
 
     \sa PositionSource, coordinate
 */

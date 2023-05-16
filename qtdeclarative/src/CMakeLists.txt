@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from src.pro.
 # special case skip regeneration
 
@@ -31,11 +34,17 @@ if(TARGET Qt::Gui AND TARGET Qt::qsb AND QT_FEATURE_qml_animation)
     find_package(Qt6 ${PROJECT_VERSION} QUIET CONFIG OPTIONAL_COMPONENTS Test)
     if(QT_FEATURE_testlib AND TARGET Qt::Test)
         add_subdirectory(qmltest)
-        add_subdirectory(quicktestutils)
+        if(QT_FEATURE_network)
+            add_subdirectory(quicktestutils)
+        endif()
     endif()
 
     if(QT_FEATURE_quick_particles)
         add_subdirectory(particles)
+    endif()
+
+    if(QT_FEATURE_quick_shadereffect)
+        add_subdirectory(effects)
     endif()
 
     if(QT_FEATURE_quick_path)
@@ -46,13 +55,13 @@ if(TARGET Qt::Gui AND TARGET Qt::qsb AND QT_FEATURE_qml_animation)
         add_subdirectory(quickwidgets)
     endif()
 
-    add_subdirectory(quicktemplates2)
-    add_subdirectory(quickcontrols2impl)
-    add_subdirectory(quickcontrols2)
-    add_subdirectory(quickdialogs2)
+    add_subdirectory(quicktemplates)
+    add_subdirectory(quickcontrolsimpl)
+    add_subdirectory(quickcontrols)
+    add_subdirectory(quickdialogs)
     add_subdirectory(quicknativestyle)
 
-    if(QT_FEATURE_testlib AND TARGET Qt::Test AND TARGET Qt::QuickControls2)
+    if(QT_FEATURE_testlib AND QT_FEATURE_network AND TARGET Qt::Test AND TARGET Qt::QuickControls2)
         add_subdirectory(quickcontrolstestutils)
     endif()
 else()

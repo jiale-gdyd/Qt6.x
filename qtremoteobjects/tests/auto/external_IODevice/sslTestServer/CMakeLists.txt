@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 #####################################################################
 ## sslTestServer Binary:
@@ -11,7 +14,7 @@ qt_internal_add_executable(sslTestServer
         sslserver.cpp sslserver.h
     INCLUDE_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::RemoteObjects
         Qt::Test
 )
@@ -39,6 +42,3 @@ qt_internal_add_resource(sslTestServer "cert"
 qt6_add_repc_sources(sslTestServer
     ../pingpong.rep
 )
-
-#### Keys ignored in scope 1:.:.:sslTestServer.pro:<TRUE>:
-# TEMPLATE = "app"

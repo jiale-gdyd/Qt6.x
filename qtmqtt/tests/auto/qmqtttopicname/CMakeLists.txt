@@ -1,4 +1,5 @@
-# Generated from qmqtttopicname.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## tst_qmqtttopicname Test:
@@ -11,6 +12,5 @@ qt_internal_add_test(tst_qmqtttopicname
         SRCDIR=\\\"${CMAKE_CURRENT_SOURCE_DIR}/\\\"
     LIBRARIES
         Qt::MqttPrivate
-    PUBLIC_LIBRARIES
         Qt::Mqtt
 )

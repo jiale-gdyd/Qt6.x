@@ -4,6 +4,7 @@
 import QtQuick
 import QtQuick3D
 import QtQuick.Controls
+import QtQuick3D.Helpers
 
 Window {
     width: 1280
@@ -12,6 +13,7 @@ Window {
     title: qsTr("Lights Example")
 
     View3D {
+        id: v3d
         anchors.fill: parent
 
         environment: SceneEnvironment {
@@ -194,71 +196,143 @@ Window {
         //! [light models]
     }
 
-    Frame {
+    Button {
+        x: settingsDrawer.visible ? (settingsDrawer.x + settingsDrawer.width) : 0
         anchors.top: parent.top
-        anchors.topMargin: 20
-        anchors.left: parent.left
-        anchors.leftMargin: 10
+        width: 50
+        height: width
+        icon.width: width * 0.5
+        icon.height: height * 0.5
+        icon.source: "icon_settings.png"
+        icon.color: "transparent"
+        background: Rectangle {
+            color: "transparent"
+        }
+        onClicked: {
+            inTransition.duration = 400
+            settingsDrawer.visible = !settingsDrawer.visible;
+        }
+    }
+
+    Drawer {
+        id: settingsDrawer
+        edge: Qt.LeftEdge
+        interactive: false
+        modal: false
         background: Rectangle {
             color: "#e0e0e0"
-            border.color: "#000000"
-            border.width: 1
             opacity: 0.8
         }
-        Column {
-            id: settingsArea
-            CustomCheckBox {
-                id: checkBoxShadows
-                text: qsTr("Enable Shadows")
-                checked: true
+        visible: (Qt.platform.os === ("android" || "ios") ? false : true)
+
+        enter: Transition {
+            NumberAnimation {
+                id: inTransition
+                property: "position"
+                to: 1.0
+                duration: 0
+                easing.type: Easing.InOutQuad
             }
-            Item { width: 1; height: 20 }
-            CustomCheckBox {
-                id: checkBoxAnimate
-                text: qsTr("Rotate Teapot")
-                checked: true
+        }
+
+        exit: Transition {
+            NumberAnimation {
+                property: "position"
+                to: 0.0
+                duration: 400
+                easing.type: Easing.InOutQuad
             }
-            Item { width: 1; height: 20 }
-            CustomCheckBox {
-                id: checkBoxCustomMaterial
-                text: qsTr("Custom Material")
-                checked: false
+        }
+
+        ScrollView {
+            anchors.fill: parent
+            padding: 10
+
+            Flickable{
+                clip: true
+                contentWidth: settingsArea.width
+                contentHeight: settingsArea.height
+
+                Column {
+                    id: settingsArea
+                    CustomCheckBox {
+                        id: checkBoxShadows
+                        text: qsTr("Enable Shadows")
+                        checked: true
+                    }
+                    Item { width: 1; height: 20 }
+                    CustomCheckBox {
+                        id: checkBoxAnimate
+                        text: qsTr("Rotate Teapot")
+                        checked: true
+                    }
+                    Item { width: 1; height: 20 }
+                    CustomCheckBox {
+                        id: checkBoxCustomMaterial
+                        text: qsTr("Custom Material")
+                        checked: false
+                    }
+                    Item { width: 1; height: 40 }
+                    CustomCheckBox {
+                        id: checkBox1
+                        text: qsTr("Directional Light")
+                        checked: true
+                    }
+                    CustomSlider {
+                        id: slider1
+                        sliderValue: 0.5
+                        fromValue: 0
+                        toValue: 1
+                    }
+                    Item { width: 1; height: 40 }
+                    CustomCheckBox {
+                        id: checkBox2
+                        text: qsTr("Point Light")
+                        checked: false
+                    }
+                    CustomSlider {
+                        id: slider2
+                        sliderValue: 6
+                        fromValue: 0
+                        toValue: 10
+                    }
+                    Item { width: 1; height: 40 }
+                    CustomCheckBox {
+                        id: checkBox4
+                        text: qsTr("Spot Light")
+                        checked: false
+                    }
+                    CustomSlider {
+                        id: slider4
+                        sliderValue: 10
+                        fromValue: 0
+                        toValue: 30
+                    }
+                }
             }
-            Item { width: 1; height: 40 }
-            CustomCheckBox {
-                id: checkBox1
-                text: qsTr("Directional Light")
-                checked: true
-            }
-            CustomSlider {
-                id: slider1
-                sliderValue: 0.5
-                fromValue: 0
-                toValue: 1
-            }
-            Item { width: 1; height: 40 }
-            CustomCheckBox {
-                id: checkBox2
-                text: qsTr("Point Light")
-                checked: false
-            }
-            CustomSlider {
-                id: slider2
-                sliderValue: 6
-                fromValue: 0
-                toValue: 10
-            }
-            Item { width: 1; height: 40 }
-            CustomCheckBox {
-                id: checkBox4
-                text: qsTr("Spot Light")
-                checked: false
-            }
-            CustomSlider {
-                id: slider4
-                sliderValue: 10
-                fromValue: 0
-                toValue: 30
+        }
+    }
+
+    Item {
+        width: debugViewToggleText.implicitWidth
+        height: debugViewToggleText.implicitHeight
+        anchors.right: parent.right
+        Label {
+            id: debugViewToggleText
+            text: "Click here " + (dbg.visible ? "to hide DebugView" : "for DebugView")
+            color: "white"
+            anchors.right: parent.right
+            anchors.top: parent.top
+        }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: dbg.visible = !dbg.visible
+            DebugView {
+                y: debugViewToggleText.height * 2
+                anchors.right: parent.right
+                source: v3d
+                id: dbg
+                visible: false
             }
         }
     }

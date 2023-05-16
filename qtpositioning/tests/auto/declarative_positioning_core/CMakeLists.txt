@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from declarative_positioning_core.pro.
 
 #####################################################################
@@ -16,7 +19,9 @@ qt_internal_add_test(tst_declarative_positioning_core
         main.cpp
         factory.cpp
         factory.h
-    PUBLIC_LIBRARIES
+        properties.cpp
+        properties.h
+    LIBRARIES
         Qt::Positioning
         Qt::Quick
     TESTDATA ${test_data}

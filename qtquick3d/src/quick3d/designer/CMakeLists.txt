@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 qt_path_join(destination ${QT_INSTALL_DIR} "${INSTALL_QMLDIR}/QtQuick3D/designer")
 qt_copy_or_install(
     FILES
@@ -11,6 +14,8 @@ qt_copy_or_install(
         CustomCameraSpecifics.qml
         CustomMaterialSection.qml
         CustomMaterialSpecifics.qml
+        DebugSettingsSection.qml
+        DebugSettingsSpecifics.qml
         DefaultMaterialSection.qml
         DefaultMaterialSpecifics.qml
         DirectionalLightSection.qml
@@ -19,6 +24,8 @@ qt_copy_or_install(
         EffectSpecifics.qml
         FileInstancingSection.qml
         FileInstancingSpecifics.qml
+        FogSection.qml
+        FogSpecifics.qml
         FrustumCameraSection.qml
         FrustumCameraSpecifics.qml
         IdComboBox.qml
@@ -26,8 +33,11 @@ qt_copy_or_install(
         InstanceListEntrySpecifics.qml
         InstanceListSection.qml
         InstanceListSpecifics.qml
+        InstancingSection.qml
         JointSection.qml
         JointSpecifics.qml
+        LightmapperSection.qml
+        LightmapperSpecifics.qml
         Loader3DSection.qml
         Loader3DSpecifics.qml
         MaterialSection.qml
@@ -50,6 +60,8 @@ qt_copy_or_install(
         PrincipledMaterialSpecifics.qml
         Repeater3DSection.qml
         Repeater3DSpecifics.qml
+        ResourceLoaderSection.qml
+        ResourceLoaderSpecifics.qml
         SceneEnvironmentSection.qml
         SceneEnvironmentSpecifics.qml
         SetUniformValueSection.qml
@@ -57,6 +69,8 @@ qt_copy_or_install(
         ShaderSection.qml
         ShaderSpecifics.qml
         ShadowSection.qml
+        SkinSpecifics.qml
+        SkinSection.qml
         SpecularGlossyMaterialSection.qml
         SpecularGlossyMaterialSpecifics.qml
         SpotLightSection.qml

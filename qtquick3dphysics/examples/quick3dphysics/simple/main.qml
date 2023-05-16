@@ -12,8 +12,8 @@ Window {
     title: qsTr("Qt Quick 3D Physics - Simple")
 
     //! [world]
-    DynamicsWorld {
-        running: true
+    PhysicsWorld {
+        scene: viewport.scene
     }
     //! [world]
 
@@ -106,5 +106,4 @@ Window {
         //! [capsule]
     }
     //! [scene]
-
 }

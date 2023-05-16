@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR BSD-3-Clause
 
 #include "appmodel.h"
+#include "openmeteobackend.h"
 #include "openweathermapbackend.h"
 #include "weatherapibackend.h"
 
-#include <QGeoPositionInfoSource>
-#include <QGeoPositionInfo>
-#include <QGeoCircle>
-#include <QLoggingCategory>
+#include <QtCore/qloggingcategory.h>
+#include <QtPositioning/qgeocircle.h>
+#include <QtPositioning/qgeocoordinate.h>
 
 Q_LOGGING_CATEGORY(requestsLog, "wapp.requests")
 
@@ -40,15 +40,6 @@ QString WeatherData::dayOfWeek() const
     return m_dayOfWeek;
 }
 
-/*!
- * The icon value is based on OpenWeatherMap.org icon set. For details
- * see http://bugs.openweathermap.org/projects/api/wiki/Weather_Condition_Codes
- *
- * e.g. 01d ->sunny day
- *
- * The icon string will be translated to
- * http://openweathermap.org/img/w/01d.png
- */
 QString WeatherData::weatherIcon() const
 {
     return m_weather;
@@ -142,7 +133,8 @@ WeatherDataCache::WeatherDataPair WeatherDataCache::getWeatherData(const QString
     return qMakePair(QString(), QList<WeatherInfo>());
 }
 
-WeatherDataCache::WeatherDataPair WeatherDataCache::getWeatherData(const QGeoCoordinate &coordinate) const
+WeatherDataCache::WeatherDataPair
+WeatherDataCache::getWeatherData(const QGeoCoordinate &coordinate) const
 {
     if (m_gpsLocation.isValid() && !m_gpsName.isEmpty()) {
         const QGeoCircle area(m_gpsLocation, kCircleRadius);
@@ -155,7 +147,8 @@ WeatherDataCache::WeatherDataPair WeatherDataCache::getWeatherData(const QGeoCoo
     return qMakePair(QString(), QList<WeatherInfo>());
 }
 
-void WeatherDataCache::addCacheElement(const LocationInfo &location, const QList<WeatherInfo> &info)
+void WeatherDataCache::addCacheElement(const LocationInfo &location,
+                                       const QList<WeatherInfo> &info)
 {
     // It it expected that we have valid QGeoCoordinate only when the weather
     // is received based on coordinates.
@@ -227,6 +220,7 @@ AppModel::AppModel(QObject *parent) :
 
     d->m_supportedBackends.push_back(new OpenWeatherMapBackend(this));
     d->m_supportedBackends.push_back(new WeatherApiBackend(this));
+    d->m_supportedBackends.push_back(new OpenMeteoBackend(this));
     registerBackend(0);
 
 //! [1]
@@ -234,10 +228,10 @@ AppModel::AppModel(QObject *parent) :
 
     if (d->src) {
         d->useGps = true;
-        connect(d->src, SIGNAL(positionUpdated(QGeoPositionInfo)),
-                this, SLOT(positionUpdated(QGeoPositionInfo)));
-        connect(d->src, SIGNAL(errorOccurred(QGeoPositionInfoSource::Error)),
-                this, SLOT(positionError(QGeoPositionInfoSource::Error)));
+        connect(d->src, &QGeoPositionInfoSource::positionUpdated,
+                this, &AppModel::positionUpdated);
+        connect(d->src, &QGeoPositionInfoSource::errorOccurred,
+                this, &AppModel::positionError);
         d->src->startUpdates();
     } else {
         d->useGps = false;

@@ -365,14 +365,6 @@ QPlatformScreen *QKmsDevice::createScreenForConnector(drmModeResPtr resources,
     qCDebug(qLcKmsDebug) << "Format is" << Qt::hex << drmFormat << Qt::dec << "requested_by_user =" << drmFormatExplicit
                          << "for output" << connectorName;
 
-#ifdef QT_FB_DRM_RGB565
-    drmFormat = DRM_FORMAT_RGB565;
-#elif defined(QT_FB_DRM_RGB32)
-    drmFormat = DRM_FORMAT_XRGB8888;
-#elif defined(QT_FB_DRM_ARGB32)
-    drmFormat = DRM_FORMAT_ARGB8888;
-#endif
-
     const QString cloneSource = userConnectorConfig.value(QStringLiteral("clones")).toString();
     if (!cloneSource.isEmpty())
         qCDebug(qLcKmsDebug) << "Output" << connectorName << " clones output " << cloneSource;

@@ -33,6 +33,7 @@ QT_BEGIN_NAMESPACE
 class QSSGCustomMaterialSystem;
 class QSSGRendererInterface;
 class QQuickWindow;
+class QSSGDebugDrawSystem;
 
 class Q_QUICK3DRUNTIMERENDER_EXPORT QSSGRenderContextInterface
 {
@@ -64,6 +65,7 @@ public:
     const QSSGRef<QSSGShaderLibraryManager> &shaderLibraryManager() const;
     const QSSGRef<QSSGCustomMaterialSystem> &customMaterialSystem() const;
     const QSSGRef<QSSGProgramGenerator> &shaderProgramGenerator() const;
+    const QSSGRef<QSSGDebugDrawSystem> &debugDrawSystem() const;
 
     // The memory used for the per frame allocator is released as the first step in BeginFrame.
     // This is useful for short lived objects and datastructures.
@@ -84,6 +86,7 @@ public:
     QRect scissorRect() const { return m_scissorRect; }
 
     void cleanupResources(QList<QSSGRenderGraphObject*> &resources);
+    void cleanupResources(QSet<QSSGRenderGraphObject *> &resources);
     void cleanupUnreferencedBuffers(QSSGRenderLayer *inLayer);
     void resetResourceCounters(QSSGRenderLayer *inLayer);
 
@@ -109,6 +112,8 @@ public:
     // return value (false if nothing's been done due to pending "frames")
     bool endFrame(QSSGRenderLayer *layer, bool allowRecursion = true);
 
+    void setReleaseCachedResourcesCallback(std::function<void()> f) { m_releaseCachedResourcesCallback = f; }
+
 private:
     void init();
 
@@ -119,6 +124,7 @@ private:
     const QSSGRef<QSSGShaderLibraryManager> m_shaderLibraryManager;
     const QSSGRef<QSSGCustomMaterialSystem> m_customMaterialSystem;
     const QSSGRef<QSSGProgramGenerator> m_shaderProgramGenerator;
+    const QSSGRef<QSSGDebugDrawSystem> m_debugDrawSystem;
 
     QSSGPerFrameAllocator m_perFrameAllocator;
     quint32 m_activeFrameRef = 0;
@@ -132,6 +138,8 @@ private:
 
     QMetaObject::Connection m_beforeFrameConnection;
     QMetaObject::Connection m_afterFrameConnection;
+
+    std::function<void()> m_releaseCachedResourcesCallback = nullptr;
 };
 QT_END_NAMESPACE
 

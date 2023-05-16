@@ -11,24 +11,23 @@
 #include <QtQuick3DRuntimeRender/private/qssgrenderlayer_p.h>
 #include <QtQuick3DRuntimeRender/private/qssgrendercontextcore_p.h>
 #include <QtQuick3DRuntimeRender/private/qssgrendermodel_p.h>
+
+#include <QtQuick3DUtils/private/qssgassert_p.h>
+
 QT_BEGIN_NAMESPACE
 
 static constexpr char qtQQ3DWAPropName[] { "_qtquick3dWindowAttachment" };
 
 QQuick3DSceneManager::QQuick3DSceneManager(QObject *parent)
     : QObject(parent)
-    , dirtySpatialNodeList(nullptr)
-    , dirtyResourceList(nullptr)
-    , dirtyImageList(nullptr)
-    , dirtyTextureDataList(nullptr)
 {
 }
 
+// Should be deleted by QQuick3DWindowAttachment to ensure it's done
+// on the render thread.
 QQuick3DSceneManager::~QQuick3DSceneManager()
 {
     cleanupNodes();
-    // If there's resources queued for deletion it's too late for them, so clean them out now
-    qDeleteAll(resourceCleanupQueue);
     if (wattached)
         wattached->unregisterSceneManager(*this);
 }
@@ -110,33 +109,23 @@ void QQuick3DSceneManager::updateBoundingBoxes(const QSSGRef<QSSGBufferManager> 
     }
 }
 
-bool QQuick3DSceneManager::updateDirtyResourceNodes() {
-    return int(updateNodes(&dirtyTextureDataList))
-            | int(updateNodes(&dirtyImageList))
-            | int(updateNodes(&dirtyResourceList));
-}
-
-void QQuick3DSceneManager::updateDirtySpatialNodes() {
-    updateNodes(&dirtySpatialNodeList);
-    // Lights have to be last because of scoped lights
-    for (const auto light : dirtyLightList)
-        updateDirtyNode(light);
-    dirtyLightList.clear();
-}
-
-void QQuick3DSceneManager::updateDirtyNode(QQuick3DObject *object)
+bool QQuick3DSceneManager::updateDirtyResourceNodes()
 {
-    // Different processing for resource nodes vs hierarchical nodes
-    const auto type = QQuick3DObjectPrivate::get(object)->type;
-    if (QSSGRenderGraphObject::isNodeType(type)) {
-        // handle hierarchical nodes
-        QQuick3DNode *spatialNode = qobject_cast<QQuick3DNode *>(object);
-        if (spatialNode)
-            updateDirtySpatialNode(spatialNode);
-    } else if (QSSGRenderGraphObject::isResource(type)) {
-        // handle resource nodes
-        updateDirtyResource(object);
-    } // we don't need to do anything with the other nodes
+    auto it = std::begin(dirtyResources);
+    const auto end = std::end(dirtyResources);
+    bool ret = false;
+    for (; it != end; ++it)
+        ret |= updateResources(it);
+
+    return ret;
+}
+
+void QQuick3DSceneManager::updateDirtySpatialNodes()
+{
+    auto it = std::begin(dirtyNodes);
+    const auto end = std::end(dirtyNodes);
+    for (; it != end; ++it)
+        updateNodes(it);
 }
 
 void QQuick3DSceneManager::updateDirtyResource(QQuick3DObject *resourceObject)
@@ -205,17 +194,6 @@ void QQuick3DSceneManager::updateDirtySpatialNode(QQuick3DNode *spatialNode)
             }
         }
     }
-
-    if (graphNode) {
-        if (auto *model = qobject_cast<QQuick3DModel*>(spatialNode)) {
-            if (auto *root = model->instanceRoot() ) {
-                auto *rootGraphNode = root ? static_cast<QSSGRenderNode *>(QQuick3DObjectPrivate::get(root)->spatialNode) : nullptr;
-                graphNode->instanceRoot = rootGraphNode;
-            } else {
-                graphNode->instanceRoot = nullptr;
-            }
-        }
-    }
 }
 
 QQuick3DObject *QQuick3DSceneManager::lookUpNode(const QSSGRenderGraphObject *node) const
@@ -231,9 +209,15 @@ QQuick3DWindowAttachment *QQuick3DSceneManager::getOrSetWindowAttachment(QQuickW
         wa = aProperty.value<QQuick3DWindowAttachment *>();
 
     if (!wa) {
-        wa = new QQuick3DWindowAttachment(&window);
+        // WindowAttachment will not be created under 'window'.
+        // It should be deleted after all the cleanups related with 'window',
+        // otherwise some resourses deleted after it, will not be cleaned correctly.
+        wa = new QQuick3DWindowAttachment(nullptr);
+        QObject::connect(&window, &QObject::destroyed, wa, [wa](QObject *){ delete wa; }, Qt::QueuedConnection);
+
         window.setProperty(qtQQ3DWAPropName, QVariant::fromValue(wa));
         QObject::connect(&window, &QQuickWindow::afterAnimating, wa, &QQuick3DWindowAttachment::preSync);
+        QObject::connect(&window, &QQuickWindow::afterFrameEnd, wa, &QQuick3DWindowAttachment::cleanupResources, Qt::DirectConnection);
     }
 
     return wa;
@@ -256,7 +240,7 @@ void QQuick3DSceneManager::cleanupNodes()
         // happen at a specified time (when graphics backend is active)
         // So build another queue for graphics assets marked for removal
         if (QSSGRenderGraphObject::hasGraphicsResources(node->type)) {
-            resourceCleanupQueue.append(node);
+            wattached->queueForCleanup(node);
             if (node->type == QSSGRenderGraphObject::Type::ResourceLoader)
                 resourceLoaders.remove(node);
         } else {
@@ -268,7 +252,7 @@ void QQuick3DSceneManager::cleanupNodes()
     cleanupNodeList.clear();
 }
 
-bool QQuick3DSceneManager::updateNodes(QQuick3DObject **listHead)
+bool QQuick3DSceneManager::updateResources(QQuick3DObject **listHead)
 {
     // Detach the current list head first, and consume all reachable entries.
     // New entries may be added to the new list while traversing, which will be
@@ -279,25 +263,58 @@ bool QQuick3DSceneManager::updateNodes(QQuick3DObject **listHead)
     if (updateList)
         QQuick3DObjectPrivate::get(updateList)->prevDirtyItem = &updateList;
 
-    while (updateList) {
-        QQuick3DObject *item = updateList;
-        QQuick3DObjectPrivate *itemPriv = QQuick3DObjectPrivate::get(item);
-        ret |= itemPriv->sharedResource;
-        itemPriv->removeFromDirtyList();
-
-        updateDirtyNode(item);
+    QQuick3DObject *item = updateList;
+    while (item) {
+        // Different processing for resource nodes vs hierarchical nodes
+        Q_ASSERT(!QSSGRenderGraphObject::isNodeType(QQuick3DObjectPrivate::get(item)->type));
+        // handle hierarchical nodes
+        updateDirtyResource(item);
+        auto po = QQuick3DObjectPrivate::get(item);
+        ret |= po->sharedResource;
+        po->removeFromDirtyList();
+        item = updateList;
     }
 
     return ret;
 }
 
+void QQuick3DSceneManager::updateNodes(QQuick3DObject **listHead)
+{
+    // Detach the current list head first, and consume all reachable entries.
+    // New entries may be added to the new list while traversing, which will be
+    // visited on the next updateDirtyNodes() call.
+    QQuick3DObject *updateList = *listHead;
+    *listHead = nullptr;
+    if (updateList)
+        QQuick3DObjectPrivate::get(updateList)->prevDirtyItem = &updateList;
+
+    QQuick3DObject *item = updateList;
+    while (item) {
+        // Different processing for resource nodes vs hierarchical nodes (anything that's _not_ a resource)
+        Q_ASSERT(QSSGRenderGraphObject::isNodeType(QQuick3DObjectPrivate::get(item)->type));
+        // handle hierarchical nodes
+        updateDirtySpatialNode(static_cast<QQuick3DNode *>(item));
+        QQuick3DObjectPrivate::get(item)->removeFromDirtyList();
+        item = updateList;
+    }
+}
+
 void QQuick3DSceneManager::preSync()
 {
-    QQuick3DObject *next = dirtySpatialNodeList;
+    for (auto it = std::begin(dirtyResources), end = std::end(dirtyResources); it != end; ++it) {
+        QQuick3DObject *next = *it;
+        while (next) {
+            next->preSync();
+            next = QQuick3DObjectPrivate::get(next)->nextDirtyItem;
+        }
+    }
 
-    while (next) {
-        next->preSync();
-        next = QQuick3DObjectPrivate::get(next)->nextDirtyItem;
+    for (auto it = std::begin(dirtyNodes), end = std::end(dirtyNodes); it != end; ++it) {
+        QQuick3DObject *next = *it;
+        while (next) {
+            next->preSync();
+            next = QQuick3DObjectPrivate::get(next)->nextDirtyItem;
+        }
     }
 }
 
@@ -312,7 +329,14 @@ QQuick3DWindowAttachment::QQuick3DWindowAttachment(QQuickWindow *window)
 
 QQuick3DWindowAttachment::~QQuick3DWindowAttachment()
 {
-
+    for (auto manager: sceneManagerCleanupQueue) {
+        sceneManagers.removeOne(manager);
+        delete manager;
+    }
+    // remaining sceneManagers should also be removed
+    qDeleteAll(sceneManagers);
+    qDeleteAll(resourceCleanupQueue);
+    qDeleteAll(pendingResourceCleanupQueue);
 }
 
 void QQuick3DWindowAttachment::preSync()
@@ -321,9 +345,38 @@ void QQuick3DWindowAttachment::preSync()
         sceneManager->preSync();
 }
 
+// Called from the render thread
+void QQuick3DWindowAttachment::cleanupResources()
+{
+    // Pass the scene managers list of resources marked for
+    // removal to the render context for deletion
+    // The render context will take ownership of the nodes
+    // and clear the list
+
+    // In special cases there is no rci because synchronize() is never called.
+    // This can happen when running with the software backend of Qt Quick.
+    // Handle this gracefully.
+    if (!rci)
+        return;
+
+    // Check if there's orphaned resources that needs to be
+    // cleaned out first.
+    if (resourceCleanupQueue.size() != 0)
+        rci->cleanupResources(resourceCleanupQueue);
+}
+
 void QQuick3DWindowAttachment::synchronize(QSSGRenderContextInterface *rci, QSet<QSSGRenderGraphObject *> &resourceLoaders)
 {
+    // Terminate old scene managers
+    for (auto manager: sceneManagerCleanupQueue) {
+        sceneManagers.removeOne(manager);
+        delete manager;
+    }
+    // Terminate old scene managers
+    sceneManagerCleanupQueue = {};
+
     // Cleanup (+ rci update)
+    QQuick3DWindowAttachment::rci = rci;
     for (auto &sceneManager : std::as_const(sceneManagers)) {
         sceneManager->rci = rci;
         sceneManager->cleanupNodes();
@@ -349,8 +402,40 @@ void QQuick3DWindowAttachment::synchronize(QSSGRenderContextInterface *rci, QSet
         for (auto &sceneManager : std::as_const(sceneManagers))
             emit sceneManager->needsUpdate();
     }
+
+    // Prepare pending (adopted) resources for clean-up (will happen as a result of afterFrameEnd()).
+    for (const auto &pr : std::as_const(pendingResourceCleanupQueue))
+        resourceCleanupQueue.insert(pr);
+    pendingResourceCleanupQueue.clear();
 }
 
 QQuickWindow *QQuick3DWindowAttachment::window() const { return qobject_cast<QQuickWindow *>(parent()); }
+
+void QQuick3DWindowAttachment::registerSceneManager(QQuick3DSceneManager &manager)
+{
+    if (!sceneManagers.contains(&manager)) {
+        // Sanity check: This should not happen.
+        if ((manager.rci && rci) && (manager.rci != rci))
+            qWarning() << "render context differs, this shouldn't happen!";
+        sceneManagers.push_back(&manager);
+    }
+}
+
+void QQuick3DWindowAttachment::unregisterSceneManager(QQuick3DSceneManager &manager)
+{
+    sceneManagers.removeOne(&manager);
+}
+
+void QQuick3DWindowAttachment::queueForCleanup(QSSGRenderGraphObject *obj)
+{
+    Q_ASSERT(QSSGRenderGraphObject::hasGraphicsResources(obj->type));
+    pendingResourceCleanupQueue.push_back(obj);
+}
+
+void QQuick3DWindowAttachment::queueForCleanup(QQuick3DSceneManager *manager)
+{
+    if (!sceneManagerCleanupQueue.contains(manager))
+        sceneManagerCleanupQueue.push_back(manager);
+}
 
 QT_END_NAMESPACE

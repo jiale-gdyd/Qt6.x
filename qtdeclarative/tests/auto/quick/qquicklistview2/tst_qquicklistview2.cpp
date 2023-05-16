@@ -47,6 +47,12 @@ private slots:
     void flickDuringFlicking();
     void maxExtent_data();
     void maxExtent();
+    void isCurrentItem_DelegateModel();
+    void isCurrentItem_NoRegressionWithDelegateModelGroups();
+
+    void pullbackSparseList();
+    void highlightWithBound();
+    void sectionIsCompatibleWithBoundComponents();
 
 private:
     void flickWithTouch(QQuickWindow *window, const QPoint &from, const QPoint &to);
@@ -473,8 +479,7 @@ void tst_QQuickListView2::flickDuringFlicking() // QTBUG-103832
 
     flickWithTouch(&window, {100, 400}, {100, 100});
     // let it flick some distance
-    QTRY_VERIFY2(listView->contentY() > 1000, qPrintable(QString::fromLatin1(
-        "Expected ListView's contentY to be greater than 1000, but it's %1").arg(listView->contentY())));
+    QTRY_COMPARE_GT(listView->contentY(), 500);
     QVERIFY(listView->isFlicking()); // we want to test the case when it's moving and then we flick again
     const qreal posBeforeSecondFlick = listView->contentY();
 
@@ -654,7 +659,7 @@ void tst_QQuickListView2::wheelSnap()
 
     if (highlightRangeMode == QQuickItemView::StrictlyEnforceRange) {
         QCOMPARE(listview->currentIndex(), listview->count() - 1);
-        QCOMPARE(currentIndexSpy.size(), listview->count() - 1);
+        QCOMPARE(currentIndexSpy.count(), listview->count() - 1);
     }
 
     // flick to start
@@ -675,7 +680,7 @@ void tst_QQuickListView2::wheelSnap()
 
     if (highlightRangeMode == QQuickItemView::StrictlyEnforceRange) {
         QCOMPARE(listview->currentIndex(), 0);
-        QCOMPARE(currentIndexSpy.size(), (listview->count() - 1) * 2);
+        QCOMPARE(currentIndexSpy.count(), (listview->count() - 1) * 2);
     }
 }
 
@@ -866,6 +871,93 @@ void tst_QQuickListView2::maxExtent()
         QCOMPARE(viewAccessor.maxXExtent(), 0);
     else if (view->orientation() == QQuickListView::Horizontal)
         QCOMPARE(viewAccessor.maxYExtent(), 0);
+}
+
+void tst_QQuickListView2::isCurrentItem_DelegateModel()
+{
+    QScopedPointer<QQuickView> window(createView());
+    window->setSource(testFileUrl("qtbug86744.qml"));
+    window->resize(640, 480);
+    window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(window.data()));
+    QQuickListView* listView = window->rootObject()->findChild<QQuickListView*>("listView");
+    QVERIFY(listView);
+    QVariant value = listView->itemAtIndex(1)->property("isCurrent");
+    QVERIFY(value.toBool() == true);
+}
+
+void tst_QQuickListView2::isCurrentItem_NoRegressionWithDelegateModelGroups()
+{
+    QScopedPointer<QQuickView> window(createView());
+    window->setSource(testFileUrl("qtbug98315.qml"));
+    window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(window.data()));
+    QQuickListView* listView = window->rootObject()->findChild<QQuickListView*>("listView");
+    QVERIFY(listView);
+
+    QQuickItem *item3 = listView->itemAtIndex(1);
+    QVERIFY(item3);
+    QCOMPARE(item3->property("isCurrent").toBool(), true);
+
+    QObject *item0 = listView->itemAtIndex(0);
+    QVERIFY(item0);
+    QCOMPARE(item0->property("isCurrent").toBool(), false);
+
+    // Press left arrow key -> Item 1 should become current, Item 3 should not
+    // be current anymore. After a previous fix of QTBUG-86744 it was working
+    // incorrectly - see QTBUG-98315
+    QTest::keyPress(window.get(), Qt::Key_Left);
+
+    QTRY_COMPARE(item0->property("isCurrent").toBool(), true);
+    QCOMPARE(item3->property("isCurrent").toBool(), false);
+}
+
+void tst_QQuickListView2::pullbackSparseList() // QTBUG_104679
+{
+    // check if PullbackHeader crashes
+    QScopedPointer<QQuickView> window(createView());
+    QVERIFY(window);
+    window->setSource(testFileUrl("qtbug104679_header.qml"));
+    QVERIFY2(window->status() == QQuickView::Ready, qPrintable(QDebug::toString(window->errors())));
+    window->resize(640, 480);
+    window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(window.data()));
+
+    // check if PullbackFooter crashes
+    window.reset(createView());
+    QVERIFY(window);
+    window->setSource(testFileUrl("qtbug104679_footer.qml"));
+    QVERIFY2(window->status() == QQuickView::Ready, qPrintable(QDebug::toString(window->errors())));
+    window->resize(640, 480);
+    window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(window.data()));
+}
+
+void tst_QQuickListView2::highlightWithBound()
+{
+    QQmlEngine engine;
+    QQmlComponent c(&engine, testFileUrl("highlightWithBound.qml"));
+    QVERIFY2(c.isReady(), qPrintable(c.errorString()));
+    QScopedPointer<QObject> o(c.create());
+    QVERIFY(!o.isNull());
+    QQuickListView *listView = qobject_cast<QQuickListView *>(o.data());
+    QVERIFY(listView);
+    QQuickItem *highlight = listView->highlightItem();
+    QVERIFY(highlight);
+    QCOMPARE(highlight->objectName(), QStringLiteral("highlight"));
+}
+
+void tst_QQuickListView2::sectionIsCompatibleWithBoundComponents()
+{
+    QTest::failOnWarning(".?");
+    QQmlEngine engine;
+    QQmlComponent c(&engine, testFileUrl("sectionBoundComponent.qml"));
+    QVERIFY2(c.isReady(), qPrintable(c.errorString()));
+    QScopedPointer<QObject> o(c.create());
+    QVERIFY(!o.isNull());
+    QQuickListView *listView = qobject_cast<QQuickListView *>(o.data());
+    QVERIFY(listView);
+    QTRY_COMPARE(listView->currentSection(), "42");
 }
 
 QTEST_MAIN(tst_QQuickListView2)

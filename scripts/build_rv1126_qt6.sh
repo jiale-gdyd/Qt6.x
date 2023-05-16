@@ -12,7 +12,7 @@ source ${CUR_DIR}/funcDefine.sh
 
 export CPU_CORES=$(grep -c processor /proc/cpuinfo)
 
-QT6_VERSION=6.4.2
+QT6_VERSION=6.5.0
 
 CMAKE_BIN=/usr/bin/cmake
 CMAKE_VERSION=$(${CMAKE_BIN} --version)
@@ -256,7 +256,7 @@ function build_iconv_rv1126()
     echo "It takes "${min}" minutes, and "${second} "seconds"
 }
 
-function build_tslib_imx6ull()
+function build_tslib_rv1126()
 {
     begin=$(get_timestamp)
     type=$(uname)
@@ -387,7 +387,7 @@ function build_tslib_imx6ull()
 function build_qt6_rv1126()
 {
     build_iconv_rv1126
-    build_tslib_imx6ull
+    build_tslib_rv1126
 
     begin=$(get_timestamp)
     type=$(uname)

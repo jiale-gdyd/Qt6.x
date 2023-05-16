@@ -2,7 +2,6 @@ TEMPLATE = subdirs
 SUBDIRS += \
     antialiasing \
     customshaders \
-    effects \
     hellocube \
     intro \
     screenspacereflections \
@@ -29,4 +28,7 @@ SUBDIRS += \
     particles3d \
     runtimeloader \
     reflectionprobes \
-    bakedlightmap
+    bakedlightmap \
+    lodhelper \
+    simplefog \
+    sceneeffects

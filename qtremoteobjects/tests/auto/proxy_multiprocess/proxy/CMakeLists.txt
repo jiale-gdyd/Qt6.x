@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 #####################################################################
 ## proxy Binary:
@@ -9,10 +12,7 @@ qt_internal_add_executable(proxy
         main.cpp
     INCLUDE_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::RemoteObjects
         Qt::Test
 )
-
-#### Keys ignored in scope 1:.:.:proxy.pro:<TRUE>:
-# TEMPLATE = "app"

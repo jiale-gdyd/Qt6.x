@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #! [versionless_targets]
 find_package(Qt6 COMPONENTS Core)
 if (NOT Qt6_FOUND)

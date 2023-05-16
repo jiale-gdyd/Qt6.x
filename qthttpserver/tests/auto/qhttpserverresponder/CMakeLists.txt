@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from qhttpserverresponder.pro.
 
 #####################################################################
@@ -10,7 +13,7 @@ list(APPEND test_data "data/")
 qt_internal_add_test(tst_qhttpserverresponder
     SOURCES
         tst_qhttpserverresponder.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::HttpServer
     TESTDATA ${test_data}
 )

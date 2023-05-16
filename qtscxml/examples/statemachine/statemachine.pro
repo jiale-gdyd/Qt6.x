@@ -1,8 +1,11 @@
-requires(qtHaveModule(widgets))
-
 TEMPLATE = subdirs
-CONFIG += no_docs_target
 
-SUBDIRS = graphicsview \
-          statemachine
-qtConfig(animation): SUBDIRS += animation
+SUBDIRS += pingpong \
+
+qtHaveModule(widgets) {
+    SUBDIRS += rogue \
+               trafficlight
+    qtConfig(animation) {
+        SUBDIRS += moveblocks \
+    }
+}

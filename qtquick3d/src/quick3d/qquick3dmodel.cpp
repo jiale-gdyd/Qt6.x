@@ -104,8 +104,6 @@ QQuick3DModel::~QQuick3DModel()
 {
     disconnect(m_skeletonConnection);
     disconnect(m_geometryConnection);
-    for (const auto &connection : std::as_const(m_connections))
-        disconnect(connection);
 
     auto matList = materials();
     qmlClearMaterials(&matList);
@@ -496,10 +494,10 @@ int QQuick3DModel::lightmapBaseResolution() const
     consistent state between the baking run and the subsequent runs that use
     the generated data is essential. For example, changing the lightmap key
     will make it impossible to load the previously generated data. An exception
-    is \l enabled, which can be used to dynamically toggle the usage of
-    lightmaps (outside of the baking run), but be aware that the rendered
-    results will depend on the Lights' \l{Light::bakeMode}{bakeMode} settings
-    in the scene.
+    is \l {BakedLightmap::}{enabled}, which can be used to dynamically toggle
+    the usage of lightmaps (outside of the baking run), but be aware that the
+    rendered results will depend on the Lights' \l{Light::bakeMode}{bakeMode}
+    settings in the scene.
 
     \sa usedInBakedLighting, Lightmapper
  */
@@ -507,6 +505,28 @@ int QQuick3DModel::lightmapBaseResolution() const
 QQuick3DBakedLightmap *QQuick3DModel::bakedLightmap() const
 {
     return m_bakedLightmap;
+}
+
+/*!
+    \qmlproperty real Model::instancingLodMin
+
+    Defines the minimum distance from camera that an instance of this model is shown.
+    Used for a level of detail implementation.
+*/
+float QQuick3DModel::instancingLodMin() const
+{
+    return m_instancingLodMin;
+}
+
+/*!
+    \qmlproperty real Model::instancingLodMax
+
+    Defines the maximum distance from camera that an instance of this model is shown.
+    Used for a level of detail implementation.
+*/
+float QQuick3DModel::instancingLodMax() const
+{
+    return m_instancingLodMax;
 }
 
 void QQuick3DModel::setSource(const QUrl &source)
@@ -557,9 +577,7 @@ void QQuick3DModel::setGeometry(QQuick3DGeometry *geometry)
         return;
 
     // Make sure to disconnect if the geometry gets deleted out from under us
-    QQuick3DObjectPrivate::updatePropertyListener(geometry, m_geometry, QQuick3DObjectPrivate::get(this)->sceneManager, QByteArrayLiteral("geometry"), m_connections, [this](QQuick3DObject *n) {
-        setGeometry(qobject_cast<QQuick3DGeometry *>(n));
-    });
+    QQuick3DObjectPrivate::attachWatcher(this, &QQuick3DModel::setGeometry, geometry, m_geometry);
 
     if (m_geometry)
         QObject::disconnect(m_geometryConnection);
@@ -581,9 +599,7 @@ void QQuick3DModel::setSkeleton(QQuick3DSkeleton *skeleton)
         return;
 
     // Make sure to disconnect if the skeleton gets deleted out from under us
-    QQuick3DObjectPrivate::updatePropertyListener(skeleton, m_skeleton, QQuick3DObjectPrivate::get(this)->sceneManager, QByteArrayLiteral("skeleton"), m_connections, [this](QQuick3DObject *n) {
-        setSkeleton(qobject_cast<QQuick3DSkeleton *>(n));
-    });
+    QQuick3DObjectPrivate::attachWatcher(this, &QQuick3DModel::setSkeleton, skeleton, m_skeleton);
 
     if (m_skeleton)
         QObject::disconnect(m_skeletonConnection);
@@ -606,9 +622,7 @@ void QQuick3DModel::setSkin(QQuick3DSkin *skin)
         return;
 
     // Make sure to disconnect if the skin gets deleted out from under us
-    QQuick3DObjectPrivate::updatePropertyListener(skin, m_skin, QQuick3DObjectPrivate::get(this)->sceneManager, QByteArrayLiteral("skin"), m_connections, [this](QQuick3DObject *n) {
-        setSkin(qobject_cast<QQuick3DSkin *>(n));
-    });
+    QQuick3DObjectPrivate::attachWatcher(this, &QQuick3DModel::setSkin, skin, m_skin);
 
     m_skin = skin;
     emit skinChanged();
@@ -641,9 +655,7 @@ void QQuick3DModel::setInstancing(QQuick3DInstancing *instancing)
         return;
 
     // Make sure to disconnect if the instance table gets deleted out from under us
-    QQuick3DObjectPrivate::updatePropertyListener(instancing, m_instancing, QQuick3DObjectPrivate::get(this)->sceneManager, QByteArrayLiteral("instancing"), m_connections, [this](QQuick3DObject *n) {
-        setInstancing(qobject_cast<QQuick3DInstancing *>(n));
-    });
+    QQuick3DObjectPrivate::attachWatcher(this, &QQuick3DModel::setInstancing, instancing, m_instancing);
     if (m_instancing)
         QObject::disconnect(m_instancingConnection);
     m_instancing = instancing;
@@ -661,7 +673,10 @@ void QQuick3DModel::setInstanceRoot(QQuick3DNode *instanceRoot)
     if (m_instanceRoot == instanceRoot)
         return;
 
+    QQuick3DObjectPrivate::attachWatcher(this, &QQuick3DModel::setInstanceRoot, instanceRoot, m_instanceRoot);
+
     m_instanceRoot = instanceRoot;
+    markDirty(InstanceRootDirty);
     emit instanceRootChanged();
 }
 
@@ -823,7 +838,21 @@ QSSGRenderGraphObject *QQuick3DModel::updateSpatialNode(QSSGRenderGraphObject *n
         }
     }
 
-    if (m_dirtyAttributes & InstancesDirty) {
+    if (m_dirtyAttributes & quint32(InstancesDirty | InstanceRootDirty)) {
+        // If we have an instance root set we have lower priority and the instance root node should already
+        // have been created.
+        QSSGRenderNode *instanceRootNode = nullptr;
+        if (m_instanceRoot) {
+            if (m_instanceRoot == this)
+                instanceRootNode = modelNode;
+            else
+                instanceRootNode = static_cast<QSSGRenderNode *>(QQuick3DObjectPrivate::get(m_instanceRoot)->spatialNode);
+        }
+        if (instanceRootNode != modelNode->instanceRoot) {
+            modelNode->instanceRoot = instanceRootNode;
+            modelNode->markDirty(QSSGRenderNode::DirtyFlag::TransformDirty);
+        }
+
         if (m_instancing) {
             modelNode->instanceTable = static_cast<QSSGRenderInstanceTable *>(QQuick3DObjectPrivate::get(m_instancing)->spatialNode);
         } else {
@@ -856,13 +885,18 @@ QSSGRenderGraphObject *QQuick3DModel::updateSpatialNode(QSSGRenderGraphObject *n
             modelNode->skin = nullptr;
     }
 
+    if (m_dirtyAttributes & LodDirty) {
+        modelNode->instancingLodMin = m_instancingLodMin;
+        modelNode->instancingLodMax = m_instancingLodMax;
+    }
+
     if (m_dirtyAttributes & PoseDirty) {
         modelNode->inverseBindPoses = m_inverseBindPoses.toVector();
         modelNode->skinningDirty = true;
     }
 
     if (m_dirtyAttributes & PropertyDirty) {
-        modelNode->m_depthBias = m_depthBias;
+        modelNode->m_depthBiasSq = QSSGRenderModel::signedSquared(m_depthBias);
         modelNode->usedInBakedLighting = m_usedInBakedLighting;
         modelNode->lightmapBaseResolution = uint(m_lightmapBaseResolution);
         if (m_bakedLightmap && m_bakedLightmap->isEnabled()) {
@@ -876,6 +910,7 @@ QSSGRenderGraphObject *QQuick3DModel::updateSpatialNode(QSSGRenderGraphObject *n
             modelNode->lightmapKey.clear();
             modelNode->lightmapLoadPath.clear();
         }
+        modelNode->levelOfDetailBias = m_levelOfDetailBias;
     }
 
     if (m_dirtyAttributes & ReflectionDirty) {
@@ -890,6 +925,9 @@ QSSGRenderGraphObject *QQuick3DModel::updateSpatialNode(QSSGRenderGraphObject *n
 
 void QQuick3DModel::markDirty(QQuick3DModel::QSSGModelDirtyType type)
 {
+    if (InstanceRootDirty & quint32(type))
+        QQuick3DObjectPrivate::get(this)->dirty(QQuick3DObjectPrivate::InstanceRootChanged);
+
     if (!(m_dirtyAttributes & quint32(type))) {
         m_dirtyAttributes |= quint32(type);
         update();
@@ -1002,7 +1040,14 @@ void QQuick3DModel::qmlClearMaterials(QQmlListProperty<QQuick3DMaterial> *list)
 
 void QQuick3DModel::onMorphTargetDestroyed(QObject *object)
 {
-    if (m_morphTargets.removeAll(static_cast<QQuick3DMorphTarget *>(object)) > 0) {
+    bool found = false;
+    for (int i = 0; i < m_morphTargets.size(); ++i) {
+        if (m_morphTargets.at(i) == object) {
+            m_morphTargets.removeAt(i--);
+            found = true;
+        }
+    }
+    if (found) {
         markDirty(QQuick3DModel::MorphTargetsDirty);
         m_numMorphAttribs = 0;
     }
@@ -1069,6 +1114,62 @@ void QQuick3DModel::qmlClearMorphTargets(QQmlListProperty<QQuick3DMorphTarget> *
     self->m_morphTargets.clear();
     self->m_numMorphAttribs = 0;
     self->markDirty(QQuick3DModel::MorphTargetsDirty);
+}
+
+void QQuick3DModel::setInstancingLodMin(float minDistance)
+{
+    if (qFuzzyCompare(m_instancingLodMin, minDistance))
+        return;
+    m_instancingLodMin = minDistance;
+    emit instancingLodMinChanged();
+    markDirty(LodDirty);
+}
+
+void QQuick3DModel::setInstancingLodMax(float maxDistance)
+{
+    if (qFuzzyCompare(m_instancingLodMax, maxDistance))
+        return;
+    m_instancingLodMax = maxDistance;
+    emit instancingLodMaxChanged();
+    markDirty(LodDirty);
+}
+
+/*!
+    \qmlproperty real Model::levelOfDetailBias
+    \since 6.5
+
+    This property changes the size the model needs to be when rendered before the
+    automatic level of detail meshes are used. Each generated level of detail
+    mesh contains an ideal size value that each level should be shown, which is
+    a ratio of how much of the rendered scene will be that mesh. A model that
+    represents only a few pixels on screen will not require the full geometry
+    to look correct, so a lower level of detail mesh will be used instead in
+    this case. This value is a bias to the ideal value such that a value smaller
+    than \c 1.0 will require an even smaller rendered size before switching to
+    a lesser level of detail. Values above \c 1.0 will lead to lower levels of detail
+    being used sooner. A value of \c 0.0 will disable the usage of levels of detail
+    completely.
+
+    The default value is \c 1.0
+
+    \note This property will only have an effect when the Model's geometry contains
+    levels of detail.
+
+    \sa Camera::levelOfDetailBias
+*/
+
+float QQuick3DModel::levelOfDetailBias() const
+{
+    return m_levelOfDetailBias;
+}
+
+void QQuick3DModel::setLevelOfDetailBias(float newLevelOfDetailBias)
+{
+    if (qFuzzyCompare(m_levelOfDetailBias, newLevelOfDetailBias))
+        return;
+    m_levelOfDetailBias = newLevelOfDetailBias;
+    emit levelOfDetailBiasChanged();
+    markDirty(QQuick3DModel::PropertyDirty);
 }
 
 QT_END_NAMESPACE

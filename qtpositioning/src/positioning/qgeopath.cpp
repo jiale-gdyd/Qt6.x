@@ -16,7 +16,6 @@ QT_BEGIN_NAMESPACE
 
 QT_IMPL_METATYPE_EXTERN(QGeoPath)
 
-constexpr int kMaxInt = std::numeric_limits<int>::max();
 constexpr auto kWarningString = u"The path has more elements than fit into an int. "
                                  "This can cause errors while querying elements from QML";
 
@@ -69,24 +68,12 @@ inline const QGeoPathPrivate *QGeoPath::d_func() const
     return static_cast<const QGeoPathPrivate *>(d_ptr.constData());
 }
 
-struct PathVariantConversions
-{
-    PathVariantConversions()
-    {
-        QMetaType::registerConverter<QGeoShape, QGeoPath>();
-        QMetaType::registerConverter<QGeoPath, QGeoShape>();
-    }
-};
-
-Q_GLOBAL_STATIC(PathVariantConversions, initPathConversions)
-
 /*!
     Constructs a new, empty geo path.
 */
 QGeoPath::QGeoPath()
 :   QGeoShape(new QGeoPathPrivate())
 {
-    initPathConversions();
 }
 
 /*!
@@ -96,7 +83,6 @@ QGeoPath::QGeoPath()
 QGeoPath::QGeoPath(const QList<QGeoCoordinate> &path, const qreal &width)
 :   QGeoShape(new QGeoPathPrivate(path, width))
 {
-    initPathConversions();
 }
 
 /*!
@@ -105,7 +91,6 @@ QGeoPath::QGeoPath(const QList<QGeoCoordinate> &path, const qreal &width)
 QGeoPath::QGeoPath(const QGeoPath &other)
 :   QGeoShape(other)
 {
-    initPathConversions();
 }
 
 /*!
@@ -114,7 +99,6 @@ QGeoPath::QGeoPath(const QGeoPath &other)
 QGeoPath::QGeoPath(const QGeoShape &other)
 :   QGeoShape(other)
 {
-    initPathConversions();
     if (type() != QGeoShape::PathType)
         d_ptr = new QGeoPathPrivate();
 }
@@ -264,7 +248,7 @@ qsizetype QGeoPath::size() const
 {
     Q_D(const QGeoPath);
     const qsizetype result = d->size();
-    if (result > kMaxInt)
+    if (result > std::numeric_limits<int>::max())
         qWarning() << kWarningString;
     return result;
 }
@@ -276,7 +260,7 @@ void QGeoPath::addCoordinate(const QGeoCoordinate &coordinate)
 {
     Q_D(QGeoPath);
     d->addCoordinate(coordinate);
-    if (d->size() > kMaxInt)
+    if (d->size() > std::numeric_limits<int>::max())
         qWarning() << kWarningString;
 }
 
@@ -700,19 +684,16 @@ void QGeoPathPrivateEager::QGeoPathPrivateEager::updateBoundingBox()
 
 QGeoPathEager::QGeoPathEager() : QGeoPath()
 {
-    initPathConversions();
     d_ptr = new QGeoPathPrivateEager;
 }
 
 QGeoPathEager::QGeoPathEager(const QList<QGeoCoordinate> &path, const qreal &width) : QGeoPath()
 {
-    initPathConversions();
     d_ptr = new QGeoPathPrivateEager(path, width);
 }
 
 QGeoPathEager::QGeoPathEager(const QGeoPath &other) : QGeoPath()
 {
-    initPathConversions();
     d_ptr = new QGeoPathPrivateEager;
     setPath(other.path());
     setWidth(other.width());
@@ -720,7 +701,6 @@ QGeoPathEager::QGeoPathEager(const QGeoPath &other) : QGeoPath()
 
 QGeoPathEager::QGeoPathEager(const QGeoShape &other) : QGeoPath()
 {
-    initPathConversions();
     if (other.type() == QGeoShape::PathType)
         *this = QGeoPathEager(QGeoPath(other));
     else

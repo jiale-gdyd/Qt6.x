@@ -44,11 +44,11 @@ QVariant ReceivedFramesModel::headerData(int section, Qt::Orientation orientatio
         case Flags:
             return tr("Flags");
         case CanID:
-            return tr("CAN-ID");
+            return tr("Frame ID");
         case DLC:
             return tr("DLC");
         case Data:
-            return tr("Data");
+            return tr("Payload");
         }
     }
 
@@ -59,11 +59,11 @@ QVariant ReceivedFramesModel::headerData(int section, Qt::Orientation orientatio
         case Timestamp:
             return QSize(130, 25);
         case Flags:
-            return QSize(25, 25);
-        case CanID:
             return QSize(50, 25);
+        case CanID:
+            return QSize(75, 25);
         case DLC:
-            return QSize(25, 25);
+            return QSize(30, 25);
         case Data:
             return QSize(200, 25);
         }

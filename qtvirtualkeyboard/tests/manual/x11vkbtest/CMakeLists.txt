@@ -1,8 +1,17 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from x11vkbtest.pro.
 
 #####################################################################
 ## x11vkbtest Binary:
 #####################################################################
+
+find_package(Qt6 ${PROJECT_VERSION} QUIET CONFIG OPTIONAL_COMPONENTS Charts)
+if(NOT TARGET Qt::Charts)
+    message("Manual test x11vkbtest won't be built, because Qt::Charts was not found.")
+    return()
+endif()
 
 qt_internal_add_manual_test(x11vkbtest
     GUI
@@ -22,10 +31,10 @@ qt_internal_add_manual_test(x11vkbtest
         windowhelper.cpp windowhelper.h
     DEFINES
         QT_DEPRECATED_WARNINGS
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Charts
         Qt::Gui
-        X11
+        X11::X11
         Xtst
         xdo
 )

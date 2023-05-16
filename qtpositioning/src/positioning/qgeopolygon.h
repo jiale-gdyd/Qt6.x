@@ -53,6 +53,17 @@ public:
 private:
     inline QGeoPolygonPrivate *d_func();
     inline const QGeoPolygonPrivate *d_func() const;
+
+#ifndef QT_NO_DATASTREAM
+    friend QDataStream &operator<<(QDataStream &stream, const QGeoPolygon &polygon)
+    {
+        return stream << static_cast<const QGeoShape &>(polygon);
+    }
+    friend QDataStream &operator>>(QDataStream &stream, QGeoPolygon &polygon)
+    {
+        return stream >> static_cast<QGeoShape &>(polygon);
+    }
+#endif
 };
 
 Q_DECLARE_TYPEINFO(QGeoPolygon, Q_RELOCATABLE_TYPE);

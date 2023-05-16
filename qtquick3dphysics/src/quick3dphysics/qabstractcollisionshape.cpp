@@ -5,22 +5,26 @@
 
 #include <QtQml/QQmlListReference>
 
-#include "qdynamicsworld_p.h"
+#include "qphysicsworld_p.h"
 
 QT_BEGIN_NAMESPACE
 
 /*!
     \qmltype CollisionShape
     \inherits Node
-    \inqmlmodule QtQuick3DPhysics
+    \inqmlmodule QtQuick3D.Physics
     \since 6.4
     \brief Base type for collision shapes.
 
-    This is the base type for all collision shapes.
+    This is the base type for all collision shapes. A collision shape
+    is used to define the physical shape and extent of an object for the
+    purposes of the physics simulation.
+
+    \sa {Qt Quick 3D Physics Shapes and Bodies}{Shapes and Bodies overview documentation}
 */
 
 /*!
-    \qmlproperty bool CollisionNode::enableDebugView
+    \qmlproperty bool CollisionShape::enableDebugDraw
     This property enables drawing the shape's debug view.
 */
 
@@ -32,21 +36,21 @@ QAbstractCollisionShape::QAbstractCollisionShape(QQuick3DNode *parent) : QQuick3
 
 QAbstractCollisionShape::~QAbstractCollisionShape() = default;
 
-bool QAbstractCollisionShape::enableDebugView() const
+bool QAbstractCollisionShape::enableDebugDraw() const
 {
-    return m_enableDebugView;
+    return m_enableDebugDraw;
 }
 
-void QAbstractCollisionShape::setEnableDebugView(bool enableDebugView)
+void QAbstractCollisionShape::setEnableDebugDraw(bool enableDebugDraw)
 {
-    if (m_enableDebugView == enableDebugView)
+    if (m_enableDebugDraw == enableDebugDraw)
         return;
 
-    if (auto world = QDynamicsWorld::getWorld(); world != nullptr && enableDebugView)
-        world->setHasIndividualDebugView();
+    if (auto world = QPhysicsWorld::getWorld(this); world != nullptr && enableDebugDraw)
+        world->setHasIndividualDebugDraw();
 
-    m_enableDebugView = enableDebugView;
-    emit enableDebugViewChanged(m_enableDebugView);
+    m_enableDebugDraw = enableDebugDraw;
+    emit enableDebugDrawChanged(m_enableDebugDraw);
 }
 
 void QAbstractCollisionShape::handleScaleChange()

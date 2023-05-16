@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 cmake_minimum_required(VERSION 3.16)
 project(pbr-materials LANGUAGES CXX)
 
@@ -84,7 +87,7 @@ qt6_add_resources(pbr-materials "obj"
         ${obj_resource_files}
 )
 
-qt6_add_big_resources(big_resources ../exampleresources/textures.qrc)
+qt6_add_resources(big_resources ../exampleresources/textures.qrc)
 target_sources(pbr-materials PRIVATE ${big_resources})
 
 install(TARGETS pbr-materials

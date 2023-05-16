@@ -7,10 +7,10 @@ QT_BEGIN_NAMESPACE
 
 /*!
     \qmltype CharacterController
-    \inqmlmodule QtQuick3DPhysics
+    \inqmlmodule QtQuick3D.Physics
     \inherits PhysicsBody
     \since 6.4
-    \brief Defines a character controller.
+    \brief Controls the motion of a character.
 
     The CharacterController type controls the motion of a character.
 
@@ -20,17 +20,24 @@ QT_BEGIN_NAMESPACE
     the physics simulation (for non-kinematic bodies); or move exactly where placed,
     regardless of barriers (for kinematic objects).
 
+    To control the motion of a character controller, set \l movement to the desired velocity.
+
     For a first-person view, the camera is typically placed inside a character controller.
+
+    \note \l {PhysicsNode::collisionShapes}{collisionShapes} must be set to
+    a single \l {CapsuleShape}. No other shapes are supported.
+
+    \sa {Qt Quick 3D Physics Shapes and Bodies}{Shapes and Bodies overview documentation}
 */
 
 /*!
-    \qmlproperty vector3d CharacterController::speed
+    \qmlproperty vector3d CharacterController::movement
 
-    This property defines the controlled speed of the character. This is the speed the character
+    This property defines the controlled motion of the character. This is the velocity the character
     would move in the absence of gravity and without interacting with other physics objects.
 
     This property does not reflect the actual velocity of the character. If the character is stuck
-    against terrain, the character can move slower than the defined \c speed. Conversely, if the
+    against terrain, the character can move slower than the speed defined by \c movement. Conversely, if the
     character is in free fall, it may move much faster.
 
     The default value is \c{(0, 0, 0)}.
@@ -41,7 +48,7 @@ QT_BEGIN_NAMESPACE
 
     This property defines the gravitational acceleration that applies to the character.
     For a character that walks on the ground, it should typically be set to
-    \l{DynamicsWorld::gravity}{DynamicsWorld.gravity}. A floating character that has movement
+    \l{PhysicsWorld::gravity}{PhysicsWorld.gravity}. A floating character that has movement
     controls in three dimensions will normally have gravity \c{(0, 0, 0)}. The default value is
     \c{(0, 0, 0)}.
 */
@@ -49,9 +56,9 @@ QT_BEGIN_NAMESPACE
 /*!
     \qmlproperty bool CharacterController::midAirControl
 
-    This property defines whether the \l speed property has effect when the character is in free
+    This property defines whether the \l movement property has effect when the character is in free
     fall. This is only relevant if \l gravity in not null. A value of \c true means that the
-    character will change direction in mid-air when \l speed changes. A value of \c false means that
+    character will change direction in mid-air when \c movement changes. A value of \c false means that
     the character will continue on its current trajectory until it hits another object. The default
     value is \c true.
 */
@@ -64,15 +71,19 @@ QT_BEGIN_NAMESPACE
     collision, or an OR combination of \c Side, \c Up, and \c Down:
 
      \value   CharacterController.None
-         The character is not colliding with anything. If gravity is non-null, this means that the
+         The character is not touching anything. If gravity is non-null, this means that the
          character is in free fall.
      \value   CharacterController.Side
-         The character is colliding with something from the side.
+         The character is touching something on its side.
      \value   CharacterController.Up
-         The character is colliding with something from above.
+         The character is touching something above it.
      \value   CharacterController.Down
-         The character is colliding with something from below. In standard gravity, this means
+         The character is touching something below it. In standard gravity, this means
          that the character is on the ground.
+
+     \note The directions are defined relative to standard gravity: \c Up is always along the
+           positive y-axis, regardless of the value of \l {gravity}{CharacterController.gravity}
+           or \l{PhysicsWorld::gravity}{PhysicsWorld.gravity}
 */
 
 /*!
@@ -83,17 +94,17 @@ QT_BEGIN_NAMESPACE
 
 QCharacterController::QCharacterController() = default;
 
-const QVector3D &QCharacterController::speed() const
+const QVector3D &QCharacterController::movement() const
 {
-    return m_speed;
+    return m_movement;
 }
 
-void QCharacterController::setSpeed(const QVector3D &newSpeed)
+void QCharacterController::setMovement(const QVector3D &newMovement)
 {
-    if (m_speed == newSpeed)
+    if (m_movement == newMovement)
         return;
-    m_speed = newSpeed;
-    emit speedChanged();
+    m_movement = newMovement;
+    emit movementChanged();
 }
 
 const QVector3D &QCharacterController::gravity() const
@@ -109,36 +120,71 @@ void QCharacterController::setGravity(const QVector3D &newGravity)
     emit gravityChanged();
 }
 
-// Calculate move based on speed/gravity (later: also implement teleport)
+// Calculate move based on movement/gravity
 
-QVector3D QCharacterController::getMovement(float deltaTime)
+QVector3D QCharacterController::getDisplacement(float deltaTime)
 {
-    // movement based on speed()
-    QVector3D movement = sceneRotation() * m_speed * deltaTime;
+    // Start with basic movement, assuming no other factors
+    QVector3D displacement = sceneRotation() * m_movement * deltaTime;
 
     // modified based on gravity
     const auto g = m_gravity;
     if (!g.isNull()) {
-        bool freeFalling = m_collisions == Collision::None;
 
+        // Avoid "spider mode": we are also supposed to be in free fall if gravity
+        // is pointing away from a surface we are touching. I.e. we are NOT in free
+        // fall only if gravity has a component in the direction of one of the collisions.
+        // Also: if we have "upwards" free fall velocity, that motion needs to stop
+        // when we hit the "ceiling"; i.e we are not in free fall at the moment of impact.
+        auto isGrounded = [this](){
+            if (m_collisions == Collision::None)
+                return false;
+
+            // Standard gravity case first
+            if (m_gravity.y() < 0) {
+                if (m_collisions & Collision::Down)
+                     return true; // We land on the ground
+                if ((m_collisions & Collision::Up) && m_freeFallVelocity.y() > 0)
+                    return true; // We bump our head on the way up
+            }
+
+            // Inverse gravity next: exactly the opposite
+            if (m_gravity.y() > 0) {
+                if (m_collisions & Collision::Up)
+                     return true;
+                if ((m_collisions & Collision::Down) && m_freeFallVelocity.y() < 0)
+                    return true;
+            }
+
+            // The sideways gravity case can't be perfectly handled since we don't
+            // know the direction of sideway contacts. We could in theory inspect
+            // the mesh, but that is far too complex for an extremely marginal use case.
+
+            if ((m_gravity.x() != 0 || m_gravity.z() != 0) && m_collisions & Collision::Side)
+                return true;
+
+            return false;
+        };
+
+        bool freeFalling = !isGrounded();
         if (freeFalling) {
             if (!m_midAirControl)
-                movement = {}; // Ignore the speed() controls in true free fall
+                displacement = {}; // Ignore the movement() controls in true free fall
 
-            movement += m_freeFallVelocity * deltaTime;
+            displacement += m_freeFallVelocity * deltaTime;
             m_freeFallVelocity += g * deltaTime;
         } else {
-            m_freeFallVelocity = movement / deltaTime + g * deltaTime;
+            m_freeFallVelocity = displacement / deltaTime + g * deltaTime;
             if (m_midAirControl) // free fall only straight down
                 m_freeFallVelocity =
                         QVector3D::dotProduct(m_freeFallVelocity, g.normalized()) * g.normalized();
         }
         const QVector3D gravityAcceleration = 0.5 * deltaTime * deltaTime * g;
-        movement += gravityAcceleration; // always add gravitational acceleration, in case we start
-                                         // to fall
+        displacement += gravityAcceleration; // always add gravitational acceleration, in case we start
+                                             // to fall. If we don't, PhysX will move us back to the ground.
     }
 
-    return movement;
+    return displacement;
 }
 
 bool QCharacterController::midAirControl() const

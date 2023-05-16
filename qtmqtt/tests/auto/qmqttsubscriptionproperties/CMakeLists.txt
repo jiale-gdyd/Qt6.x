@@ -1,4 +1,5 @@
-# Generated from qmqttsubscriptionproperties.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## tst_qmqttsubscriptionproperties Test:
@@ -14,7 +15,6 @@ qt_internal_add_test(tst_qmqttsubscriptionproperties
         ../../common
     LIBRARIES
         Qt::MqttPrivate
-    PUBLIC_LIBRARIES
         Qt::Mqtt
         Qt::Network
 )

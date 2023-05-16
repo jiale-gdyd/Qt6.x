@@ -13,6 +13,7 @@
 #if QT_CONFIG(quick_draganddrop)
 #include <QtQuick/private/qquickdrag_p.h>
 #endif
+#include <QtQuick/private/qquickitem_p.h>
 #include <QtQuick/private/qquickprofiler_p.h>
 #include <QtQuick/private/qquickrendercontrol_p.h>
 #include <QtQuick/private/qquickwindow_p.h>
@@ -40,6 +41,18 @@ extern Q_GUI_EXPORT bool qt_sendShortcutOverrideEvent(QObject *o, ulong timestam
 bool QQuickDeliveryAgentPrivate::subsceneAgentsExist(false);
 QQuickDeliveryAgent *QQuickDeliveryAgentPrivate::currentEventDeliveryAgent(nullptr);
 
+static bool allowSyntheticRightClick()
+{
+    static int allowRightClick = -1;
+    if (allowRightClick < 0) {
+        bool ok = false;
+        allowRightClick = qEnvironmentVariableIntValue("QT_QUICK_ALLOW_SYNTHETIC_RIGHT_CLICK", &ok);
+        if (!ok)
+            allowRightClick = 1; // user didn't opt out
+    }
+    return allowRightClick != 0;
+}
+
 void QQuickDeliveryAgentPrivate::touchToMouseEvent(QEvent::Type type, const QEventPoint &p, const QTouchEvent *touchEvent, QMutableSinglePointEvent *mouseEvent)
 {
     Q_ASSERT(QCoreApplication::testAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents));
@@ -50,6 +63,11 @@ void QQuickDeliveryAgentPrivate::touchToMouseEvent(QEvent::Type type, const QEve
     ret.setAccepted(true); // this now causes the persistent touchpoint to be accepted too
     ret.setTimestamp(touchEvent->timestamp());
     *mouseEvent = ret;
+    // It's very important that the recipient of the event shall be able to see that
+    // this "mouse" event actually comes from a touch device.
+    Q_ASSERT(mouseEvent->device() == touchEvent->device());
+    if (Q_UNLIKELY(mouseEvent->device()->type() == QInputDevice::DeviceType::Mouse))
+        qWarning() << "Unexpected: synthesized an indistinguishable mouse event" << mouseEvent;
 }
 
 bool QQuickDeliveryAgentPrivate::checkIfDoubleTapped(ulong newPressEventTimestamp, QPoint newPressPos)
@@ -560,7 +578,7 @@ void QQuickDeliveryAgentPrivate::notifyFocusChangesRecur(QQuickItem **items, int
 
         if (item && itemPrivate->notifiedActiveFocus != itemPrivate->activeFocus) {
             itemPrivate->notifiedActiveFocus = itemPrivate->activeFocus;
-            itemPrivate->itemChange(QQuickItem::ItemActiveFocusHasChanged, itemPrivate->activeFocus);
+            itemPrivate->itemChange(QQuickItem::ItemActiveFocusHasChanged, bool(itemPrivate->activeFocus));
             itemPrivate->notifyChangeListeners(QQuickItemPrivate::Focus, &QQuickItemChangeListener::itemFocusChanged, item, reason);
             emit item->activeFocusChanged(itemPrivate->activeFocus);
         }
@@ -1371,6 +1389,11 @@ bool QQuickDeliveryAgentPrivate::isMouseEvent(const QPointerEvent *ev)
     }
 }
 
+bool QQuickDeliveryAgentPrivate::isMouseOrWheelEvent(const QPointerEvent *ev)
+{
+    return isMouseEvent(ev) || ev->type() == QEvent::Wheel;
+}
+
 bool QQuickDeliveryAgentPrivate::isHoverEvent(const QPointerEvent *ev)
 {
     switch (ev->type()) {
@@ -1575,7 +1598,11 @@ void QQuickDeliveryAgentPrivate::handleTouchEvent(QTouchEvent *event)
 void QQuickDeliveryAgentPrivate::handleMouseEvent(QMouseEvent *event)
 {
     Q_Q(QQuickDeliveryAgent);
-    if (event->source() == Qt::MouseEventSynthesizedBySystem) {
+    // We generally don't want OS-synthesized mouse events, because Qt Quick does its own touch->mouse synthesis.
+    // But if the platform converts long-press to right-click, it's ok to react to that,
+    // unless the user has opted out by setting QT_QUICK_ALLOW_SYNTHETIC_RIGHT_CLICK=0.
+    if (event->source() == Qt::MouseEventSynthesizedBySystem &&
+            !(event->button() == Qt::RightButton && allowSyntheticRightClick())) {
         event->accept();
         return;
     }
@@ -1692,50 +1719,43 @@ void QQuickDeliveryAgentPrivate::onGrabChanged(QObject *grabber, QPointingDevice
             handler->onGrabChanged(handler, transition, const_cast<QPointerEvent *>(event),
                                    const_cast<QEventPoint &>(point));
         }
-    } else {
+    } else if (auto *grabberItem = qmlobject_cast<QQuickItem *>(grabber)) {
         switch (transition) {
         case QPointingDevice::CancelGrabExclusive:
         case QPointingDevice::UngrabExclusive:
-            if (auto *item = qmlobject_cast<QQuickItem *>(grabber)) {
-                bool filtered = false;
-                if (isDeliveringTouchAsMouse() ||
-                        point.device()->type() == QInputDevice::DeviceType::Mouse ||
-                        point.device()->type() == QInputDevice::DeviceType::TouchPad) {
-                    QMutableSinglePointEvent e(QEvent::UngrabMouse, point.device(), point);
-                    hasFiltered.clear();
-                    filtered = sendFilteredMouseEvent(&e, item, item->parentItem());
-                    if (!filtered) {
-                        lastUngrabbed = item;
-                        item->mouseUngrabEvent();
-                    }
+            if (isDeliveringTouchAsMouse()
+                || point.device()->type() == QInputDevice::DeviceType::Mouse
+                || point.device()->type() == QInputDevice::DeviceType::TouchPad) {
+                QMutableSinglePointEvent e(QEvent::UngrabMouse, point.device(), point);
+                hasFiltered.clear();
+                if (!sendFilteredMouseEvent(&e, grabberItem, grabberItem->parentItem())) {
+                    lastUngrabbed = grabberItem;
+                    grabberItem->mouseUngrabEvent();
                 }
-                if (point.device()->type() == QInputDevice::DeviceType::TouchScreen) {
-                    bool allReleasedOrCancelled = true;
-                    if (transition == QPointingDevice::UngrabExclusive && event) {
-                        for (const auto &pt : event->points()) {
-                            if (pt.state() != QEventPoint::State::Released) {
-                                allReleasedOrCancelled = false;
-                                break;
-                            }
+            }
+            if (point.device()->type() == QInputDevice::DeviceType::TouchScreen) {
+                bool allReleasedOrCancelled = true;
+                if (transition == QPointingDevice::UngrabExclusive && event) {
+                    for (const auto &pt : event->points()) {
+                        if (pt.state() != QEventPoint::State::Released) {
+                            allReleasedOrCancelled = false;
+                            break;
                         }
                     }
-                    if (allReleasedOrCancelled)
-                        item->touchUngrabEvent();
                 }
+                if (allReleasedOrCancelled)
+                    grabberItem->touchUngrabEvent();
             }
             break;
         default:
             break;
         }
-        auto grabberItem = static_cast<QQuickItem *>(grabber); // cannot be a handler: we checked above
-        if (grabberItem) {
-            auto itemPriv = QQuickItemPrivate::get(grabberItem);
-            deliveryAgent = itemPriv->deliveryAgent();
-            // An item that is NOT a subscene root needs to track whether it got a grab via a subscene delivery agent,
-            // whereas the subscene root item already knows it has its own DA.
-            if (isSubsceneAgent && grabGained && (!itemPriv->extra.isAllocated() || !itemPriv->extra->subsceneDeliveryAgent))
-                itemPriv->maybeHasSubsceneDeliveryAgent = true;
-        }
+        auto *itemPriv = QQuickItemPrivate::get(grabberItem);
+        deliveryAgent = itemPriv->deliveryAgent();
+        // An item that is NOT a subscene root needs to track whether it got a grab via a subscene delivery agent,
+        // whereas the subscene root item already knows it has its own DA.
+        if (isSubsceneAgent && grabGained && (!itemPriv->extra.isAllocated() || !itemPriv->extra->subsceneDeliveryAgent))
+            itemPriv->maybeHasSubsceneDeliveryAgent = true;
     }
 
     if (currentEventDeliveryAgent == q && event && event->device()) {
@@ -2428,8 +2448,11 @@ bool QQuickDeliveryAgentPrivate::sendFilteredPointerEventImpl(QPointerEvent *eve
                     if (filteringParent->childMouseEventFilter(receiver, &filteringParentTouchEvent)) {
                         qCDebug(lcTouch) << "touch event intercepted by childMouseEventFilter of " << filteringParent;
                         skipDelivery.append(filteringParent);
-                        for (auto point : filteringParentTouchEvent.points())
-                            event->setExclusiveGrabber(point, filteringParent);
+                        for (auto point : filteringParentTouchEvent.points()) {
+                            const QQuickItem *exclusiveGrabber = qobject_cast<const QQuickItem *>(event->exclusiveGrabber(point));
+                            if (!exclusiveGrabber || !exclusiveGrabber->keepTouchGrab())
+                                event->setExclusiveGrabber(point, filteringParent);
+                        }
                         return true;
                     } else if (Q_LIKELY(QCoreApplication::testAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents)) &&
                                !filteringParent->acceptTouchEvents()) {

@@ -16,38 +16,6 @@ QT_BEGIN_NAMESPACE
 
 Q_LOGGING_CATEGORY(lcRouterRule, "qt.httpserver.router.rule")
 
-// qdebug lacks op<< for std::initializer_list and QMetaType
-// don't define it here locally, lest we risk ODR violations
-// define it for a local wrapper instead:
-namespace {
-
-struct Wrapper {
-    std::initializer_list<QMetaType> l;
-    friend QDebug operator<<(QDebug debug, Wrapper r)
-    {
-        QDebugStateSaver save(debug);
-
-        debug.nospace() << "std::initializer_list(";
-        bool first = true;
-
-        for (auto metaType : r.l) {
-            if (first)
-                first = false;
-            else
-                debug << ", ";
-            debug << "QMetaType(" << metaType.name() << ")";
-        }
-
-        debug << ")";
-
-        return debug;
-    }
-};
-
-auto wrap(std::initializer_list<QMetaType> l) { return Wrapper{l}; }
-
-} // unnamed namespace
-
 /*!
     \class QHttpServerRouterRule
     \since 6.4
@@ -72,7 +40,7 @@ auto wrap(std::initializer_list<QMetaType> l) { return Wrapper{l}; }
                 path, methods, [this, viewHandler = std::forward<ViewHandler>(viewHandler)]
                                                    (QRegularExpressionMatch &match,
                                                     const QHttpServerRequest &request,
-                                                    QTcpSocket *const socket) mutable {
+                                                    QHttpServerResponder &&responder) mutable {
             auto boundViewHandler = router.bindCaptured<ViewHandler>(
                     std::move(viewHandler), match);
             // call viewHandler
@@ -107,7 +75,7 @@ auto wrap(std::initializer_list<QMetaType> l) { return Wrapper{l}; }
    \typealias QHttpServerRouterRule::RouterHandler
 
    Type alias for
-    std::function<void(const QRegularExpressionMatch &,const QHttpServerRequest &, QTcpSocket *)>
+    std::function<void(const QRegularExpressionMatch &,const QHttpServerRequest &, QHttpServerResponder &&)>
  */
 
 /*!
@@ -172,11 +140,11 @@ bool QHttpServerRouterRule::hasValidMethods() const
 
     This function is called by QHttpServerRouter when it receives a new
     request. If the given \a request matches this rule, this function handles
-    the request by delivering a response to the given \a socket, then returns
+    the request by delivering a response to the given \a responder, then returns
     \c true. Otherwise, it returns \c false.
 */
 bool QHttpServerRouterRule::exec(const QHttpServerRequest &request,
-                                 QTcpSocket *socket) const
+                                 QHttpServerResponder &responder) const
 {
     Q_D(const QHttpServerRouterRule);
 
@@ -184,7 +152,7 @@ bool QHttpServerRouterRule::exec(const QHttpServerRequest &request,
     if (!matches(request, &match))
         return false;
 
-    d->routerHandler(match, request, socket);
+    d->routerHandler(match, request, std::move(responder));
     return true;
 }
 
@@ -249,7 +217,7 @@ bool QHttpServerRouterRule::createPathRegexp(std::initializer_list<QMetaType> me
         qCWarning(lcRouterRule) << "not enough types or one of the types is not supported, regexp:"
                                 << pathRegexp
                                 << ", pattern:" << d->pathPattern
-                                << ", types:" << wrap(metaTypes);
+                                << ", types:" << metaTypes;
         return false;
     }
 

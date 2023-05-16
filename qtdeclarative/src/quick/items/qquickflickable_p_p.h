@@ -30,9 +30,6 @@
 
 QT_BEGIN_NAMESPACE
 
-// Really slow flicks can be annoying.
-const qreal MinimumFlickVelocity = 75.0;
-
 class QQuickFlickableVisibleArea;
 class QQuickTransition;
 class QQuickFlickableReboundTransition;
@@ -84,6 +81,7 @@ public:
             dragStartOffset = 0;
             fixingUp = false;
             inOvershoot = false;
+            contentPositionChangedExternallyDuringDrag = false;
         }
 
         void markExtentsDirty() {

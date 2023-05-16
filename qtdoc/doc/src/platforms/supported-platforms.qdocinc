@@ -15,6 +15,10 @@
         \li \c x86_64
         \li GCC 10 (toolset)
         \li
+    \row \li Red Hat 9.0
+        \li \c x86_64
+        \li GCC 11
+        \li
     \row \li openSUSE 15.4
         \li \c x86_64
         \li GCC 9
@@ -23,9 +27,9 @@
         \li \c x86_64
         \li GCC 10
         \li
-    \row \li Ubuntu 20.04
+    \row \li Ubuntu 22.04
         \li \c x86_64
-        \li GCC as provided by Canonical, GCC 9.x
+        \li GCC as provided by Canonical, GCC 11.x
         \li
 \endtable
 //! [linux]
@@ -34,9 +38,9 @@
 //! [macos]
 \table 80%
     \header \li Target Platform \li Architecture \li Build Environment
-    \row \li \macos 10.14, 10.15, 11, 12, 13
+    \row \li \macos 11, 12, 13
         \li \c x86_64, \c x86_64h, and \c arm64
-        \li Xcode 13 (12 SDK), \li Xcode 14 (13 SDK)
+        \li Xcode 13 (\macos 12 SDK), Xcode 14 (\macos 13 SDK)
 \endtable
 //! [macos]
 
@@ -44,11 +48,11 @@
 //! [windows]
 \table 80%
     \header \li Operating System \li Architecture \li Compiler
-    \row \li Windows 11 21H2 (1809 or later)
+    \row \li Windows 10 (1809 or later)
         \li \c x86_64
         \li MSVC 2022, MSVC 2019, MinGW 11.2
         \li
-    \row \li Windows 10 21H2 (1809 or later)
+    \row \li Windows 11
         \li \c x86_64
         \li MSVC 2022, MSVC 2019, MinGW 11.2
         \li
@@ -67,32 +71,32 @@
 
 \section1 Mobile Platforms
 //! [mobile]
-
+\target android_support
 \section2 \l{Qt for Android}{Android}
 //! [android]
 
 The following configurations are supported in this Qt release:
 \table 80%
     \header \li Distribution \li Architecture \li Compiler \li Notes
-    \row \li Android 6.0 or later (API level 23 or higher)
+    \row \li Android 8.0 or later (API level 26 or higher)
         \li \c armv7a, \c x86, \c arm64-v8, and \c x86_64
-        \li Clang 12.0.8 (NDK r23b) as provided by Google
+        \li Clang 14.0.6 (NDK r25b) as provided by Google
         \li For JDK versions see \l{Java Development Kit (JDK)}
 \endtable
-\note Qt user apps require using the same NDK r23b version used for
-building the official Qt for Android libraries. A different
-version might be missing the symbols for \c __emutls_get_address.
+ \note It's recommended that Qt user apps use the same NDK r25b version
+ used for building these official Qt for Android libraries. An NDK version
+ more recent than r23b is required if building a project results in an error
+ of missing the symbols for \c __emutls_get_address.
 
 //! [android]
 
 \section2 \l{Qt for iOS}{iOS}
 //! [ios]
 \table 80%
-    \header \li Target Platform \li Architecture \li Build Environment \li Notes
-    \row \li iOS 13, iOS 14, iOS 15, iOS 16
+    \header \li Target Platform \li Architecture \li Build Environment
+    \row \li iOS 14, 15, 16
         \li \c armv8 (\c arm64)
-        \li Xcode 12 (iOS 14 SDK), {Xcode 13} (iOS 15 SDK), \b {Xcode 14} (iOS 16 SDK)
-        \li
+        \li Xcode 13 (iOS 15 SDK), Xcode 14 (iOS 16 SDK)
 \endtable
 //! [ios]
 
@@ -114,6 +118,73 @@ See notes on \l {Qt for WebAssembly#Supported Browsers}{supported browsers}.
 \section1 Embedded Platforms
 //! [embedded]
 
+//! [tier_support]
+
+\section2 Support Levels for Target Hardware
+
+There are multiple levels of support that apply across specific hardware and OS
+combinations.
+
+\note Boards will not be demoted or removed from these tables during a patch
+release, however they may be removed in a future minor release.
+
+\section3 Tier 1: Reference Targets
+
+\list
+    \li Issues on this reference target are given a higher priority than lower
+    tier targets.
+    \li Covered under \l{Qt Support Terms and Conditions}{Standard Support}.
+    \li Releases are available via the Qt Online Installer.
+\endlist
+
+\table
+    \header \li{4,1} Tier 1: Reference Targets
+    \header \li Vendor \li Board \li OS / Other \li Provided By
+    \row \li Intel \li NUC 10 \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li NXP \li i.MX 8QuadMax \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li NXP \li i.MX 8QuadMax \li QNX 7.1 \li \l{Qt for QNX}
+    \row \li Qualcomm \li SA8155P \li AAOS 10-12 \li \l{Qt for Android Automotive}
+    \row \li Qualcomm \li SA8155P \li INTEGRITY 19.03 \li \l{Qt for INTEGRITY}
+    \row \li Raspberry Pi \li Raspberry Pi 4 Model B \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li Toradex \li Apalis iMX6 \li Yocto 4.1.2 \li \l{Boot to Qt}
+\endtable
+
+\section3 Tier 2: Verified Targets
+
+\list
+    \li Issues on verified targets are given a lower priority than
+    \l{Tier 1: Reference Targets}.
+    \li Covered under \l{Qt Support Terms and Conditions}{Premium Support}.
+    \li Releases are available via the Qt Online Installer.
+\endlist
+
+\table
+    \header \li{4,1} Tier 2: Verified Targets
+    \header \li Vendor \li Board \li OS / Other \li Provided By
+    \row \li NVIDIA \li Jetson AGX Orin \li Debian 12 \li \l{Enterprise Qt Debian Packages}
+    \row \li NXP \li i.MX 8M \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li NXP \li i.MX 8M Mini \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li NXP \li i.MX 8M Plus \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li NXP \li i.MX 8M Nano \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li ST \li STM32MP157F-DK2 \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li ST \li STM32MP157F-EV1 \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li TI \li AM62x \li Yocto 4.1.2 \li \l{Boot to Qt}
+    \row \li Toradex \li Colibri iMX6 ULL \li Yocto 4.1.2 \li \l{Boot to Qt}
+\endtable
+
+\section3 Tier 3: Other Targets
+
+\list
+    \li Issues on other targets are given a lower priority than
+    \l{Tier 1: Reference Targets} and \l{Tier 2: Verified Targets}.
+    \li Hardware not regularly tested.
+    \li Releases are available via the Qt Online Installer.
+\endlist
+
+See \l{Other Targets} for more information.
+
+See \l{Qt Support Terms and Conditions} for more information.
+//! [tier_support]
 \section2 Android Automotive OS
 
 The \l{Qt for Android Automotive} solution is based on \l{Qt for Android},
@@ -144,6 +215,14 @@ documentation.
     \li
     \li
     \li \l{Qt for QNX}
+    \row \li Free RTOS
+    \li
+    \li
+    \li \l{Qt for MCUs}
+    \row \li Bare metal
+    \li
+    \li
+    \li \l{Qt for MCUs}
 \endtable
 
 //! [embedded]
@@ -156,15 +235,15 @@ documentation.
     \header \li Host Platform \li Architecture \li Compiler \li Browsers
     \row \li macOS
         \li \c wasm32
-        \li Emscripten 3.1.10
+        \li Emscripten 3.1.25
         \li Safari, Chrome, Firefox
     \row \li Windows
         \li \c wasm32
-        \li Emscripten 3.1.10
+        \li Emscripten 3.1.25
         \li Edge, Chrome, Firefox
     \row \li Linux
         \li \c wasm32
-        \li Emscripten 3.1.10
+        \li Emscripten 3.1.25
         \li Chrome, Firefox
 \endtable
 

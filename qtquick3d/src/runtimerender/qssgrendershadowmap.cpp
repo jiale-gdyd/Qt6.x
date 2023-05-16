@@ -16,6 +16,11 @@ QSSGRenderShadowMap::QSSGRenderShadowMap(const QSSGRenderContextInterface &inCon
 
 QSSGRenderShadowMap::~QSSGRenderShadowMap()
 {
+    releaseCachedResources();
+}
+
+void QSSGRenderShadowMap::releaseCachedResources()
+{
     for (QSSGShadowMapEntry &entry : m_shadowMapList)
         entry.destroyRhiResources();
 
@@ -66,18 +71,22 @@ static inline void setupForRhiDepth(QRhi *rhi,
 void QSSGRenderShadowMap::addShadowMapEntry(qint32 lightIdx,
                                             qint32 width,
                                             qint32 height,
-                                            ShadowMapModes mode)
+                                            ShadowMapModes mode,
+                                            const QString &renderNodeObjName)
 {
     QRhi *rhi = m_context.rhiContext()->rhi();
     // Bail out if there is no QRhi, since we can't add entries without it
     if (!rhi)
         return;
 
+
     const QSize pixelSize(width, height);
 
     QRhiTexture::Format rhiFormat = QRhiTexture::R16F;
     if (!rhi->isTextureFormatSupported(rhiFormat))
         rhiFormat = QRhiTexture::R16;
+
+    const QByteArray rtName = renderNodeObjName.toLatin1();
 
     // This function is called once per shadow casting light on every layer
     // prepare (i.e. once per frame). We must avoid creating resources as much
@@ -149,6 +158,7 @@ void QSSGRenderShadowMap::addShadowMapEntry(qint32 lightIdx,
                 if (!rt->create())
                     qWarning("Failed to build shadow map render target");
             }
+            rt->setName(rtName + QByteArrayLiteral(" shadow map"));
 
             if (!pEntry->m_rhiBlurRenderTarget0) {
                 // blur X: depthMap -> depthCopy
@@ -158,12 +168,14 @@ void QSSGRenderShadowMap::addShadowMapEntry(qint32 lightIdx,
                 pEntry->m_rhiBlurRenderTarget0->setRenderPassDescriptor(pEntry->m_rhiBlurRenderPassDesc);
                 pEntry->m_rhiBlurRenderTarget0->create();
             }
+            pEntry->m_rhiBlurRenderTarget0->setName(rtName + QByteArrayLiteral(" shadow blur X"));
             if (!pEntry->m_rhiBlurRenderTarget1) {
                 // blur Y: depthCopy -> depthMap
                 pEntry->m_rhiBlurRenderTarget1 = rhi->newTextureRenderTarget({ pEntry->m_rhiDepthMap });
                 pEntry->m_rhiBlurRenderTarget1->setRenderPassDescriptor(pEntry->m_rhiBlurRenderPassDesc);
                 pEntry->m_rhiBlurRenderTarget1->create();
             }
+            pEntry->m_rhiBlurRenderTarget1->setName(rtName + QByteArrayLiteral(" shadow blur Y"));
         } else {
             if (pEntry->m_rhiRenderTargets.isEmpty()) {
                 pEntry->m_rhiRenderTargets.resize(6);
@@ -172,11 +184,11 @@ void QSSGRenderShadowMap::addShadowMapEntry(qint32 lightIdx,
             }
             Q_ASSERT(pEntry->m_rhiRenderTargets.size() == 6);
 
-            for (int face = 0; face < 6; ++face) {
-                QRhiTextureRenderTarget *&rt(pEntry->m_rhiRenderTargets[face]);
+            for (const auto face : QSSGRenderTextureCubeFaces) {
+                QRhiTextureRenderTarget *&rt(pEntry->m_rhiRenderTargets[quint8(face)]);
                 if (!rt) {
                     QRhiColorAttachment att(pEntry->m_rhiDepthCube);
-                    att.setLayer(face); // 6 render targets, each referencing one face of the cubemap
+                    att.setLayer(quint8(face)); // 6 render targets, each referencing one face of the cubemap
                     QRhiTextureRenderTargetDescription rtDesc;
                     rtDesc.setColorAttachments({ att });
                     rtDesc.setDepthStencilBuffer(pEntry->m_rhiDepthStencil);
@@ -188,6 +200,7 @@ void QSSGRenderShadowMap::addShadowMapEntry(qint32 lightIdx,
                     if (!rt->create())
                         qWarning("Failed to build shadow map render target");
                 }
+                rt->setName(rtName + QByteArrayLiteral(" shadow cube face: ") + QSSGBaseTypeHelpers::displayName(face));
             }
 
             // blurring cubemap happens via multiple render targets (all faces attached to COLOR0..5)
@@ -195,9 +208,9 @@ void QSSGRenderShadowMap::addShadowMapEntry(qint32 lightIdx,
                 if (!pEntry->m_rhiBlurRenderTarget0) {
                     // blur X: depthCube -> cubeCopy
                     QRhiColorAttachment att[6];
-                    for (int face = 0; face < 6; ++face) {
-                        att[face].setTexture(pEntry->m_rhiCubeCopy);
-                        att[face].setLayer(face);
+                    for (const auto face : QSSGRenderTextureCubeFaces) {
+                        att[quint8(face)].setTexture(pEntry->m_rhiCubeCopy);
+                        att[quint8(face)].setLayer(quint8(face));
                     }
                     QRhiTextureRenderTargetDescription rtDesc;
                     rtDesc.setColorAttachments(att, att + 6);
@@ -207,12 +220,13 @@ void QSSGRenderShadowMap::addShadowMapEntry(qint32 lightIdx,
                     pEntry->m_rhiBlurRenderTarget0->setRenderPassDescriptor(pEntry->m_rhiBlurRenderPassDesc);
                     pEntry->m_rhiBlurRenderTarget0->create();
                 }
+                pEntry->m_rhiBlurRenderTarget0->setName(rtName + QByteArrayLiteral(" shadow cube blur X"));
                 if (!pEntry->m_rhiBlurRenderTarget1) {
                     // blur Y: cubeCopy -> depthCube
                     QRhiColorAttachment att[6];
-                    for (int face = 0; face < 6; ++face) {
-                        att[face].setTexture(pEntry->m_rhiDepthCube);
-                        att[face].setLayer(face);
+                    for (const auto face : QSSGRenderTextureCubeFaces) {
+                        att[quint8(face)].setTexture(pEntry->m_rhiDepthCube);
+                        att[quint8(face)].setLayer(quint8(face));
                     }
                     QRhiTextureRenderTargetDescription rtDesc;
                     rtDesc.setColorAttachments(att, att + 6);
@@ -220,6 +234,7 @@ void QSSGRenderShadowMap::addShadowMapEntry(qint32 lightIdx,
                     pEntry->m_rhiBlurRenderTarget1->setRenderPassDescriptor(pEntry->m_rhiBlurRenderPassDesc);
                     pEntry->m_rhiBlurRenderTarget1->create();
                 }
+                pEntry->m_rhiBlurRenderTarget1->setName(rtName + QByteArrayLiteral(" shadow cube blur Y"));
             } else {
                 static bool warned = false;
                 if (!warned) {

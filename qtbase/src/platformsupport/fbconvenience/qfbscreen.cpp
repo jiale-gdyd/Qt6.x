@@ -217,7 +217,6 @@ QRegion QFbScreen::doRedraw()
             continue;
 
         mPainter->setCompositionMode(QPainter::CompositionMode_Source);
-
         if (!QFbBackingStore::hasScreenImage())
             mPainter->fillRect(rect, mScreenImage.hasAlphaChannel() ? Qt::transparent : Qt::black);
 

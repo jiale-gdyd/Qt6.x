@@ -252,7 +252,14 @@ qsizetype QHttpServerRequestPrivate::readHeader(QAbstractSocket *socket)
         QByteArray connectionHeaderField = headerField("connection");
         upgrade = connectionHeaderField.toLower().contains("upgrade");
 
-        state = (chunkedTransferEncoding || bodyLength > 0) ? State::ReadingData : State::AllDone;
+        if (chunkedTransferEncoding || bodyLength > 0) {
+            if (headerField("expect").compare("100-continue", Qt::CaseInsensitive) == 0)
+                state = State::ExpectContinue;
+            else
+                state = State::ReadingData;
+         } else {
+            state = State::AllDone;
+         }
     }
     return bytes;
 }
@@ -260,8 +267,24 @@ qsizetype QHttpServerRequestPrivate::readHeader(QAbstractSocket *socket)
 /*!
     \internal
 */
-QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteAddress)
-    : remoteAddress(remoteAddress)
+qsizetype QHttpServerRequestPrivate::sendContinue(QAbstractSocket *socket)
+{
+    qsizetype ret = socket->write("HTTP/1.1 100 Continue\r\n\r\n");
+    state = State::ReadingData;
+    return ret;
+}
+
+/*!
+    \internal
+*/
+QHttpServerRequestPrivate::QHttpServerRequestPrivate(const QHostAddress &remoteAddress,
+                                                     quint16 remotePort,
+                                                     const QHostAddress &localAddress,
+                                                     quint16 localPort)
+    : remoteAddress(remoteAddress),
+      remotePort(remotePort),
+      localAddress(localAddress),
+      localPort(localPort)
 {
     clear();
 }
@@ -286,6 +309,9 @@ bool QHttpServerRequestPrivate::parse(QAbstractSocket *socket)
             continue;
         case State::ReadingHeader:
             read = readHeader(socket);
+            continue;
+        case State::ExpectContinue:
+            read = sendContinue(socket);
             continue;
         case State::ReadingData:
             if (chunkedTransferEncoding)
@@ -534,8 +560,9 @@ qsizetype QHttpServerRequestPrivate::getChunkSize(QAbstractSocket *socket, qsize
 /*!
     \internal
 */
-QHttpServerRequest::QHttpServerRequest(const QHostAddress &remoteAddress) :
-    d(new QHttpServerRequestPrivate(remoteAddress))
+QHttpServerRequest::QHttpServerRequest(const QHostAddress &remoteAddress, quint16 remotePort,
+                                       const QHostAddress &localAddress, quint16 localPort)
+    : d(new QHttpServerRequestPrivate(remoteAddress, remotePort, localAddress, localPort))
 {}
 
 /*!
@@ -598,6 +625,36 @@ QByteArray QHttpServerRequest::body() const
 QHostAddress QHttpServerRequest::remoteAddress() const
 {
     return d->remoteAddress;
+}
+
+/*!
+    Returns the port of the origin host of the request.
+
+    \since 6.5
+*/
+quint16 QHttpServerRequest::remotePort() const
+{
+    return d->remotePort;
+}
+
+/*!
+    Returns the host address of the local socket which received the request.
+
+    \since 6.5
+*/
+QHostAddress QHttpServerRequest::localAddress() const
+{
+    return d->localAddress;
+}
+
+/*!
+    Returns the port of the local socket which received the request.
+
+    \since 6.5
+*/
+quint16 QHttpServerRequest::localPort() const
+{
+    return d->localPort;
 }
 
 QT_END_NAMESPACE

@@ -71,8 +71,8 @@ struct Q_QUICK3DRUNTIMERENDER_EXPORT QSSGRenderNode : public QSSGRenderGraphObje
     // Opacity of 1 means opaque, opacity of zero means transparent.
     float localOpacity = 1.0f;
 
-    // Nodes are initially dirty, but not active!
-    FlagT flags { FlagT(DirtyFlag::GlobalValuesDirty) };
+    // Nodes are initially dirty and locally active!
+    FlagT flags { FlagT(DirtyFlag::GlobalValuesDirty) | FlagT(LocalState::Active) };
     // These end up right handed
     QMatrix4x4 localTransform;
     QMatrix4x4 globalTransform;
@@ -91,6 +91,8 @@ struct Q_QUICK3DRUNTIMERENDER_EXPORT QSSGRenderNode : public QSSGRenderGraphObje
 
     using ChildList = QSSGInvasiveLinkedList<QSSGRenderNode, &QSSGRenderNode::previousSibling, &QSSGRenderNode::nextSibling>;
     ChildList children;
+
+    QString debugObjectName;
 
     QSSGRenderNode();
     explicit QSSGRenderNode(Type type);
@@ -143,6 +145,15 @@ struct Q_QUICK3DRUNTIMERENDER_EXPORT QSSGRenderNode : public QSSGRenderGraphObje
 
     // This should be in a utility file somewhere
     QMatrix3x3 calculateNormalMatrix() const;
+
+    // The Squared value of \a val
+    // This is mainly used for setting the sorting bias on models and particles
+    // since we're using the squared distance when sorting.
+    [[nodiscard]] static inline float signedSquared(float val)
+    {
+        const float sign = (val >= 0.0f) ? 1.0f : -1.0f;
+        return sign * val * val;
+    }
 };
 
 QT_END_NAMESPACE

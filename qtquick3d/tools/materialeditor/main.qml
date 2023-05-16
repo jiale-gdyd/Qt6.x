@@ -6,17 +6,17 @@ import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
-import Qt.labs.settings
+import QtCore
 
 import QtQuick3D
-import MaterialEditorHelpers 1.0
+import QtQuick3D.MaterialEditor
 
 ApplicationWindow {
     id: window
     height: 720
     width: 1024
     visible: true
-    title: qsTr("Material Editor")
+    title: qsTr("Custom Material Editor")
 
     // Context property (see main.cpp)
     property url projectFolder: _qtProjectDir

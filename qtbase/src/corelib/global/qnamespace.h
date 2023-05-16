@@ -5,6 +5,10 @@
 #ifndef QNAMESPACE_H
 #define QNAMESPACE_H
 
+#if 0
+#pragma qt_class(Qt)
+#endif
+
 #include <QtCore/qglobal.h>
 #include <QtCore/qtmetamacros.h>
 
@@ -40,6 +44,12 @@ namespace Qt {
         darkMagenta,
         darkYellow,
         transparent
+    };
+
+    enum class ColorScheme {
+        Unknown,
+        Light,
+        Dark,
     };
 
     enum MouseButton {
@@ -1704,6 +1714,12 @@ namespace Qt {
         PassThrough
     };
 
+    enum class PermissionStatus {
+        Undetermined,
+        Granted,
+        Denied,
+    };
+
     // QTBUG-48701
     enum ReturnByValueConstant { ReturnByValue }; // ### Qt 7: Remove me
 
@@ -1747,6 +1763,7 @@ namespace Qt {
     Q_ENUM_NS(DayOfWeek)
     Q_ENUM_NS(CursorShape)
     Q_ENUM_NS(GlobalColor)
+    Q_ENUM_NS(ColorScheme)
     Q_ENUM_NS(AspectRatioMode)
     Q_ENUM_NS(FlushMode)
     Q_ENUM_NS(TransformationMode)
@@ -1799,6 +1816,7 @@ namespace Qt {
     Q_ENUM_NS(ChecksumType)
     Q_ENUM_NS(HighDpiScaleFactorRoundingPolicy)
     Q_ENUM_NS(TabFocusBehavior)
+    Q_ENUM_NS(PermissionStatus)
 #endif // Q_DOC
 
 }

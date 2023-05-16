@@ -1,4 +1,5 @@
-# Generated from mng.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## QMngPlugin Plugin:
@@ -15,7 +16,3 @@ qt_internal_add_plugin(QMngPlugin
         Qt::Core
         Qt::Gui
 )
-
-#### Keys ignored in scope 1:.:.:mng.pro:<TRUE>:
-# OTHER_FILES = "mng.json"
-# QT_FOR_CONFIG = "imageformats-private"

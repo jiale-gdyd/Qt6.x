@@ -29,6 +29,7 @@
 #endif
 #include <QtCore/qmutex.h>
 #include <QtCore/qdatetime.h>
+#include <QtCore/qtimezone.h>
 #if defined(Q_OS_UNIX)
 #include <QtCore/qdir.h>
 #endif
@@ -105,7 +106,7 @@ void qsslSocketCannotResolveSymbolWarning(const char *functionName)
 
 #endif // QT_LINKED_OPENSSL
 
-#if QT_CONFIG(opensslv11)
+#if QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
 
 // Below are the functions first introduced in version 1.1:
 
@@ -159,7 +160,7 @@ DEFINEFUNC(int, BIO_get_shutdown, BIO *a, a, return -1, return)
 DEFINEFUNC2(void, BIO_set_shutdown, BIO *a, a, int shut, shut, return, DUMMYARG)
 
 
-#else // QT_CONFIG(opensslv11)
+#else // QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
 
 // Functions below are either deprecated or removed in OpenSSL >= 1.1:
 
@@ -223,7 +224,7 @@ DEFINEFUNC(long, SSLeay, void, DUMMYARG, return 0, return)
 DEFINEFUNC(const char *, SSLeay_version, int a, a, return nullptr, return)
 DEFINEFUNC(void, ERR_load_crypto_strings, void, DUMMYARG, return, return)
 
-#endif // QT_CONFIG(opensslv11)
+#endif // QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
 
 DEFINEFUNC(long, ASN1_INTEGER_get, ASN1_INTEGER *a, a, return 0, return)
 DEFINEFUNC2(int, ASN1_INTEGER_cmp, const ASN1_INTEGER *a, a, const ASN1_INTEGER *b, b, return 1, return)
@@ -642,7 +643,7 @@ static LoadedOpenSsl loadOpenSsl()
 {
     LoadedOpenSsl result;
 
-#if QT_CONFIG(opensslv11)
+#if QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
     // With OpenSSL 1.1 the names have changed to libssl-1_1(-x64) and libcrypto-1_1(-x64), for builds using
     // MSVC and GCC, (-x64 suffix for 64-bit builds).
 
@@ -652,12 +653,17 @@ static LoadedOpenSsl loadOpenSsl()
 #define QT_SSL_SUFFIX
 #endif // !Q_PROCESSOR_x86_64
 
+#if QT_CONFIG(opensslv11)
     tryToLoadOpenSslWin32Library(QLatin1String("libssl-1_1" QT_SSL_SUFFIX),
                                  QLatin1String("libcrypto-1_1" QT_SSL_SUFFIX), result);
+#elif QT_CONFIG(opensslv30)
+    tryToLoadOpenSslWin32Library(QLatin1String("libssl-3" QT_SSL_SUFFIX),
+                                 QLatin1String("libcrypto-3" QT_SSL_SUFFIX), result);
+#endif
 
 #undef QT_SSL_SUFFIX
 
-#else // QT_CONFIG(opensslv11)
+#else // QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
 
     // When OpenSSL is built using MSVC then the libraries are named 'ssleay32.dll' and 'libeay32'dll'.
     // When OpenSSL is built using GCC then different library names are used (depending on the OpenSSL version)
@@ -669,7 +675,7 @@ static LoadedOpenSsl loadOpenSsl()
             }
         }
     }
-#endif // !QT_CONFIG(opensslv11)
+#endif // !QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
 
     return result;
 }
@@ -735,7 +741,7 @@ static LoadedOpenSsl loadOpenSsl()
         libcrypto->unload();
     }
 
-#if !QT_CONFIG(opensslv11)
+#if !QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
     // first-and-half attempts: for OpenSSL 1.0 try to load some hardcoded sonames:
     // - "1.0.0" is the official upstream one
     // - "1.0.2" is found on some distributions (e.g. Debian) that patch OpenSSL
@@ -772,7 +778,7 @@ static LoadedOpenSsl loadOpenSsl()
             return defaultSuffix;
         return suffix;
     };
-#  if QT_CONFIG(opensslv11)
+#  if QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
     static QString suffix = QString::fromLatin1(openSSLSuffix("_1_1"));
 #  else
     static QString suffix = QString::fromLatin1(openSSLSuffix());
@@ -850,7 +856,7 @@ bool q_resolveOpenSslSymbols()
         // failed to load them
         return false;
 
-#if QT_CONFIG(opensslv11)
+#if QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
     RESOLVEFUNC(X509_REQ_get_subject_name) // v1.1.0
     RESOLVEFUNC(OPENSSL_init_ssl)
     RESOLVEFUNC(OPENSSL_init_crypto)
@@ -1005,7 +1011,7 @@ bool q_resolveOpenSslSymbols()
     RESOLVEFUNC(EC_GROUP_get_degree)
 #endif
     RESOLVEFUNC(BN_num_bits)
-#if QT_CONFIG(opensslv11)
+#if QT_CONFIG(opensslv11) | QT_CONFIG(opensslv30)
     RESOLVEFUNC(BN_is_word)
 #endif
     RESOLVEFUNC(BN_mod_word)
@@ -1265,7 +1271,7 @@ QDateTime q_getTimeFromASN1(const ASN1_TIME *aTime)
         QDate resDate(lTime.tm_year + 1900, lTime.tm_mon + 1, lTime.tm_mday);
         QTime resTime(lTime.tm_hour, lTime.tm_min, lTime.tm_sec);
 
-        QDateTime result(resDate, resTime, Qt::UTC);
+        QDateTime result(resDate, resTime, QTimeZone::UTC);
         result = result.addSecs(lSecondsFromUCT);
         return result;
 
@@ -1287,7 +1293,7 @@ QDateTime q_getTimeFromASN1(const ASN1_TIME *aTime)
         QDate resDate(lTime.tm_year, lTime.tm_mon, lTime.tm_mday);
         QTime resTime(lTime.tm_hour, lTime.tm_min, lTime.tm_sec);
 
-        QDateTime result(resDate, resTime, Qt::UTC);
+        QDateTime result(resDate, resTime, QTimeZone::UTC);
         return result;
 
     } else {

@@ -222,6 +222,10 @@ void Tree::resolvePropertyOverriddenFromPtrs(Aggregate *n)
 }
 
 /*!
+    Resolves access functions associated with each PropertyNode stored
+    in \c m_unresolvedPropertyMap, and adds them into the property node.
+    This allows the property node to list the access functions when
+    generating their documentation.
  */
 void Tree::resolveProperties()
 {
@@ -229,10 +233,11 @@ void Tree::resolveProperties()
          propEntry != m_unresolvedPropertyMap.constEnd(); ++propEntry) {
         PropertyNode *property = propEntry.key();
         Aggregate *parent = property->parent();
-        QString getterName = (*propEntry)[PropertyNode::Getter];
-        QString setterName = (*propEntry)[PropertyNode::Setter];
-        QString resetterName = (*propEntry)[PropertyNode::Resetter];
-        QString notifierName = (*propEntry)[PropertyNode::Notifier];
+        QString getterName = (*propEntry)[PropertyNode::FunctionRole::Getter];
+        QString setterName = (*propEntry)[PropertyNode::FunctionRole::Setter];
+        QString resetterName = (*propEntry)[PropertyNode::FunctionRole::Resetter];
+        QString notifierName = (*propEntry)[PropertyNode::FunctionRole::Notifier];
+        QString bindableName = (*propEntry)[PropertyNode::FunctionRole::Bindable];
 
         for (auto it = parent->constBegin(); it != parent->constEnd(); ++it) {
             if ((*it)->isFunction()) {
@@ -240,13 +245,15 @@ void Tree::resolveProperties()
                 if (function->access() == property->access()
                     && (function->status() == property->status() || function->doc().isEmpty())) {
                     if (function->name() == getterName) {
-                        property->addFunction(function, PropertyNode::Getter);
+                        property->addFunction(function, PropertyNode::FunctionRole::Getter);
                     } else if (function->name() == setterName) {
-                        property->addFunction(function, PropertyNode::Setter);
+                        property->addFunction(function, PropertyNode::FunctionRole::Setter);
                     } else if (function->name() == resetterName) {
-                        property->addFunction(function, PropertyNode::Resetter);
+                        property->addFunction(function, PropertyNode::FunctionRole::Resetter);
                     } else if (function->name() == notifierName) {
-                        property->addSignal(function, PropertyNode::Notifier);
+                        property->addSignal(function, PropertyNode::FunctionRole::Notifier);
+                    } else if (function->name() == bindableName) {
+                        property->addFunction(function, PropertyNode::FunctionRole::Bindable);
                     }
                 }
             }
@@ -274,7 +281,7 @@ void Tree::resolveCppToQmlLinks()
 
     const NodeList &children = m_root.childNodes();
     for (auto *child : children) {
-        if (child->isQmlType() || child->isJsType()) {
+        if (child->isQmlType()) {
             auto *qcn = static_cast<QmlTypeNode *>(child);
             auto *cn = const_cast<ClassNode *>(qcn->classNode());
             if (cn)
@@ -284,16 +291,33 @@ void Tree::resolveCppToQmlLinks()
 }
 
 /*!
+    For each \a aggregate, recursively set the \\since version based on
+    \\since information from the associated physical or logical module.
+    That is, C++ and QML types inherit the \\since of their module,
+    unless that command is explicitly used in the type documentation.
+*/
+void Tree::resolveSince(Aggregate &aggregate)
+{
+    for (auto *child : aggregate.childNodes()) {
+        if (!child->isAggregate())
+            continue;
+        if (!child->since().isEmpty())
+            continue;
+
+        if (const auto collectionNode = m_qdb->getModuleNode(child))
+            child->setSince(collectionNode->since());
+
+        resolveSince(static_cast<Aggregate&>(*child));
+    }
+}
+
+/*!
   For each C++ class node, resolve any \c using clauses
   that appeared in the class declaration.
-
-  For type aliases, resolve the aliased node.
  */
-void Tree::resolveUsingClauses(Aggregate *parent)
+void Tree::resolveUsingClauses(Aggregate &aggregate)
 {
-    if (!parent)
-        parent = &m_root;
-    for (auto *child : parent->childNodes()) {
+    for (auto *child : aggregate.childNodes()) {
         if (child->isClassNode()) {
             auto *cn = static_cast<ClassNode *>(child);
             QList<UsingClause> &usingClauses = cn->usingClauses();
@@ -306,7 +330,7 @@ void Tree::resolveUsingClauses(Aggregate *parent)
             }
         }
     if (child->genus() == Node::CPP && child->isAggregate())
-        resolveUsingClauses(static_cast<Aggregate *>(child));
+        resolveUsingClauses(static_cast<Aggregate&>(*child));
     }
 }
 
@@ -893,8 +917,6 @@ CNMap *Tree::getCollectionMap(Node::NodeType type)
         return &m_modules;
     case Node::QmlModule:
         return &m_qmlModules;
-    case Node::JsModule:
-        return &m_jsModules;
     default:
         break;
     }
@@ -919,12 +941,11 @@ CollectionNode *Tree::getCollection(const QString &name, Node::NodeType type)
 }
 
 /*!
-  Find the group, module, QML module, or JavaScript module
-  named \a name and return a pointer to that collection node.
-  \a type specifies which kind of collection node you want.
-  If a collection node with the specified \a name and \a type
-  is not found, a new one is created, and the pointer to the
-  new one is returned.
+  Find the group, module, or QML module named \a name and return a
+  pointer to that collection node. \a type specifies which kind of
+  collection node you want. If a collection node with the specified \a
+  name and \a type is not found, a new one is created, and the pointer
+  to the new one is returned.
 
   If a new collection node is created, its parent is the tree
   root, and the new collection node is marked \e{not seen}.
@@ -974,15 +995,6 @@ CollectionNode *Tree::findCollection(const QString &name, Node::NodeType type)
   and the new node is marked \e{not seen}.
  */
 
-/*! \fn CollectionNode *Tree::findJsModule(const QString &name)
-  Find the JavaScript module named \a name and return a pointer
-  to it. If a matching node is not found, add a new JavaScript
-  module node named \a name and return a pointer to that one.
-
-  If a new JavaScript module node is added, its parent is the
-  tree root, and the new node is marked \e{not seen}.
- */
-
 /*! \fn CollectionNode *Tree::addGroup(const QString &name)
   Looks up the group node named \a name in the collection
   of all group nodes. If a match is found, a pointer to the
@@ -1003,14 +1015,6 @@ CollectionNode *Tree::findCollection(const QString &name, Node::NodeType type)
   Looks up the QML module node named \a name in the collection
   of all QML module nodes. If a match is found, a pointer to the
   node is returned. Otherwise, a new QML module node named \a name
-  is created and inserted into the collection, and the pointer
-  to that node is returned.
- */
-
-/*! \fn CollectionNode *Tree::addJsModule(const QString &name)
-  Looks up the JavaScript module node named \a name in the collection
-  of all JavaScript module nodes. If a match is found, a pointer to the
-  node is returned. Otherwise, a new JavaScrpt module node named \a name
   is created and inserted into the collection, and the pointer
   to that node is returned.
  */
@@ -1081,37 +1085,6 @@ CollectionNode *Tree::addToQmlModule(const QString &name, Node *node)
 }
 
 /*!
-  Looks up the QML module named \a name. If it isn't there,
-  create it. Then append \a node to the QML module's member
-  list. The parent of \a node is not changed by this function.
-  Returns the pointer to the QML module node.
- */
-CollectionNode *Tree::addToJsModule(const QString &name, Node *node)
-{
-    QStringList qmid;
-    QStringList dotSplit;
-    QStringList blankSplit = name.split(QLatin1Char(' '));
-    qmid.append(blankSplit[0]);
-    if (blankSplit.size() > 1) {
-        qmid.append(blankSplit[0] + blankSplit[1]);
-        dotSplit = blankSplit[1].split(QLatin1Char('.'));
-        qmid.append(blankSplit[0] + dotSplit[0]);
-    }
-
-    CollectionNode *cn = findJsModule(blankSplit[0]);
-    cn->addMember(node);
-    node->setQmlModule(cn);
-    if (node->isJsType()) {
-        QmlTypeNode *n = static_cast<QmlTypeNode *>(node);
-        for (int i = 0; i < qmid.size(); ++i) {
-            QString key = qmid[i] + "::" + node->name();
-            insertQmlType(key, n);
-        }
-    }
-    return cn;
-}
-
-/*!
   If the QML type map does not contain \a key, insert node
   \a n with the specified \a key.
  */
@@ -1142,7 +1115,7 @@ const FunctionNode *Tree::findFunctionNode(const QStringList &path, const Parame
         if (qcn == nullptr) {
             QStringList p(path[1]);
             Node *n = findNodeByNameAndType(p, &Node::isQmlType);
-            if ((n != nullptr) && (n->isQmlType() || n->isJsType()))
+            if ((n != nullptr) && n->isQmlType())
                 qcn = static_cast<QmlTypeNode *>(n);
         }
         if (qcn != nullptr)

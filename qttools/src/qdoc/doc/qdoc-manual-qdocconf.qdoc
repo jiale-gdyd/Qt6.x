@@ -738,7 +738,7 @@
     that QDoc will ignore when resolving hyperlink targets.
 
     QDoc has an auto-linking feature, where linking is attempted for words
-    that resemble C++, QML, or JavaScript entities. Specifically, a string
+    that resemble C++ or QML entities. Specifically, a string
     qualifies for auto-linking if it is at least three characters in
     length, has no whitespace, and it
 
@@ -910,18 +910,23 @@
     \section1 language
 
     The \c language variable specifies the language of the source code
-    that is used in the documentation.
-
-    Currently, C++ is the only language that QDoc understands. It is
-    also the default language, and doesn't really need to be
-    specified. However, a possible example of a language variable
-    statement:
+    that is used in the documentation. Specifically, it defines the
+    default language for parsing source code within \\code .. \\endcode
+    blocks.
 
     \badcode
-        language = Cpp
+    language = Cpp
     \endcode
 
-    This identifies C++ as the language of the Qt source code.
+    The default language is C++ (Cpp), and doesn't need to be explicitly
+    specified. If the code snippets in the documentation consist mainly
+    of QML code, set QML as the default:
+
+    \badcode
+    language = QML
+    \endcode
+
+    See also \l {code-command}[\\code}.
 
     \target locationinfo-variable
     \section1 locationinfo
@@ -1229,18 +1234,16 @@
     documentation.
 
     \badcode
-        outputprefixes     = QML JS
+        outputprefixes     = QML
         outputprefixes.QML = uicomponents-
-        outputprefixes.JS  = uicomponents-
     \endcode
 
     By default, files containing the API documentation for QML types
-    are prefixed with "qml-", and javaScript types with "js-". In the
-    above example, the prefix \c "uicomponents" is used instead for
-    both.
+    are prefixed with "qml-". In the above example, the prefix \c
+    "uicomponents" is used instead.
 
     The output prefix is applied to file names for documentation on
-    QML and JS types.
+    QML.
 
     \target outputsuffixes-variable
     \section1 outputsuffixes
@@ -1258,9 +1261,9 @@
     the generated HTML page for a QML type \e FooWidget would be
     \c qml-foobar-tp-foowidget.html.
 
-    By default, no suffix is used. The output suffix, if defined, is applied
-    to file names for documentation on QML and JS types, and their respective
-    module pages.
+    By default, no suffix is used. The output suffix, if defined, is
+    applied to file names for documentation on QML and its module
+    page.
 
     The \c outputsuffixes variable was introduced in QDoc 5.6.
 
@@ -1955,10 +1958,9 @@
 
     \title Example Manifest Files
 
-    QDoc generates XML files that contain information about all documented
-    examples and demos. These files, named \c {examples-manifest.xml} and
-    \c {demos-manifest.xml}, are used by Qt Creator to present a list of
-    examples in its welcome screen and to link to their documentation.
+    QDoc generates example-manifest.xml files that contain information about
+    all documented examples. These files are used by Qt Creator to present a
+    list of examples in its welcome screen and to link to their documentation.
 
     \section1 Manifest XML Structure
 

@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from inputpanel.pro.
 
 #####################################################################
@@ -14,7 +17,7 @@ qt_internal_add_test(tst_inputpanel
     QMLTEST
     SOURCES
         tst_inputpanel.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Gui
     TESTDATA ${test_data}
 )
@@ -27,7 +30,7 @@ qt_internal_add_test(tst_inputpanel
 #####################################################################
 
 qt_internal_extend_target(tst_inputpanel CONDITION NOT QT_BUILD_SHARED_LIBS
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Svg
 )
 

@@ -83,10 +83,10 @@ QQuick3DGeometry *QDebugDrawHelper::generateSphereGeometry(const float radius)
 
     QCollisionDebugMeshBuilder builder;
     // X
-    for (int i = 0; i < circlePoints.size(); ++i) {
+    for (int i = 0; i < circlePoints.count(); ++i) {
         const auto refPoint1 = circlePoints[i];
         int index2 = i + 1;
-        if (index2 == circlePoints.size())
+        if (index2 == circlePoints.count())
             index2 = 0;
         const auto refPoint2 = circlePoints[index2];
         const auto vertex1 = QVector3D(0.0f, refPoint1.x(), refPoint1.y());
@@ -95,10 +95,10 @@ QQuick3DGeometry *QDebugDrawHelper::generateSphereGeometry(const float radius)
     }
 
     // Y
-    for (int i = 0; i < circlePoints.size(); ++i) {
+    for (int i = 0; i < circlePoints.count(); ++i) {
         const auto refPoint1 = circlePoints[i];
         int index2 = i + 1;
-        if (index2 == circlePoints.size())
+        if (index2 == circlePoints.count())
             index2 = 0;
         const auto refPoint2 = circlePoints[index2];
         const auto vertex1 = QVector3D(refPoint1.x(), 0.0f, refPoint1.y());
@@ -107,10 +107,10 @@ QQuick3DGeometry *QDebugDrawHelper::generateSphereGeometry(const float radius)
     }
 
     // Z
-    for (int i = 0; i < circlePoints.size(); ++i) {
+    for (int i = 0; i < circlePoints.count(); ++i) {
         const auto refPoint1 = circlePoints[i];
         int index2 = i + 1;
-        if (index2 == circlePoints.size())
+        if (index2 == circlePoints.count())
             index2 = 0;
         const auto refPoint2 = circlePoints[index2];
         const auto vertex1 = QVector3D(refPoint1.x(), refPoint1.y(), 0.0f);
@@ -155,10 +155,10 @@ QQuick3DGeometry *QDebugDrawHelper::generateCapsuleGeometry(const float radius,
     QCollisionDebugMeshBuilder builder;
 
     // Top Y Cirlce (y = height * 0.5)
-    for (int i = 0; i < circlePoints.size(); ++i) {
+    for (int i = 0; i < circlePoints.count(); ++i) {
         const auto refPoint1 = circlePoints[i];
         int index2 = i + 1;
-        if (index2 == circlePoints.size())
+        if (index2 == circlePoints.count())
             index2 = 0;
         const auto refPoint2 = circlePoints[index2];
         const auto vertex1 = QVector3D(halfHeight, refPoint1.x(), refPoint1.y());
@@ -168,10 +168,10 @@ QQuick3DGeometry *QDebugDrawHelper::generateCapsuleGeometry(const float radius,
     }
 
     // Bottom Y Circle (y = -height * 0.5)
-    for (int i = 0; i < circlePoints.size(); ++i) {
+    for (int i = 0; i < circlePoints.count(); ++i) {
         const auto refPoint1 = circlePoints[i];
         int index2 = i + 1;
-        if (index2 == circlePoints.size())
+        if (index2 == circlePoints.count())
             index2 = 0;
         const auto refPoint2 = circlePoints[index2];
         const auto vertex1 = QVector3D(-halfHeight, refPoint1.x(), refPoint1.y());
@@ -216,23 +216,23 @@ QQuick3DGeometry *QDebugDrawHelper::generateCapsuleGeometry(const float radius,
     QVector<int> topIndexes;
     QVector<int> bottomIndexes;
     {
-        const int half = circlePoints.size() / 2;
+        const int half = circlePoints.count() / 2;
         for (int i = 0; i < half + 1; ++i)
             topIndexes.append(i);
 
-        for (int i = half; i <= circlePoints.size(); ++i) {
+        for (int i = half; i <= circlePoints.count(); ++i) {
             int index = i;
-            if (i >= circlePoints.size())
-                index = index - circlePoints.size();
+            if (i >= circlePoints.count())
+                index = index - circlePoints.count();
             bottomIndexes.append(index);
         }
     }
 
     // Z Top Half Circle
-    for (int i = 0; i < topIndexes.size(); ++i) {
+    for (int i = 0; i < topIndexes.count(); ++i) {
         const auto refPoint1 = circlePoints[topIndexes[i]];
         int index2 = i + 1;
-        if (index2 == topIndexes.size())
+        if (index2 == topIndexes.count())
             break;
         const auto refPoint2 = circlePoints[topIndexes[index2]];
         const auto vertex1 = QVector3D(refPoint1.y() + halfHeight, refPoint1.x(), 0.0f);
@@ -242,10 +242,10 @@ QQuick3DGeometry *QDebugDrawHelper::generateCapsuleGeometry(const float radius,
     }
 
     // Z Bottom Half Circle
-    for (int i = 0; i < bottomIndexes.size(); ++i) {
+    for (int i = 0; i < bottomIndexes.count(); ++i) {
         const auto refPoint1 = circlePoints[bottomIndexes[i]];
         int index2 = i + 1;
-        if (index2 == bottomIndexes.size())
+        if (index2 == bottomIndexes.count())
             break;
         const auto refPoint2 = circlePoints[bottomIndexes[index2]];
         const auto vertex1 = QVector3D(refPoint1.y() - halfHeight, refPoint1.x(), 0.0f);
@@ -255,10 +255,10 @@ QQuick3DGeometry *QDebugDrawHelper::generateCapsuleGeometry(const float radius,
     }
 
     // X Top Half Circle
-    for (int i = 0; i < topIndexes.size(); ++i) {
+    for (int i = 0; i < topIndexes.count(); ++i) {
         const auto refPoint1 = circlePoints[topIndexes[i]];
         int index2 = i + 1;
-        if (index2 == topIndexes.size())
+        if (index2 == topIndexes.count())
             break;
         const auto refPoint2 = circlePoints[topIndexes[index2]];
         const auto vertex1 = QVector3D(refPoint1.y() + halfHeight, 0.0f, refPoint1.x());
@@ -268,10 +268,10 @@ QQuick3DGeometry *QDebugDrawHelper::generateCapsuleGeometry(const float radius,
     }
 
     // X Bottom Half Circle
-    for (int i = 0; i < bottomIndexes.size(); ++i) {
+    for (int i = 0; i < bottomIndexes.count(); ++i) {
         const auto refPoint1 = circlePoints[bottomIndexes[i]];
         int index2 = i + 1;
-        if (index2 == bottomIndexes.size())
+        if (index2 == bottomIndexes.count())
             break;
         const auto refPoint2 = circlePoints[bottomIndexes[index2]];
         const auto vertex1 = QVector3D(refPoint1.y() - halfHeight, 0.0f, refPoint1.x());

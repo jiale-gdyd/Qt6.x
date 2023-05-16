@@ -12,14 +12,16 @@
 #include <array>
 #include <QDebug>
 #include <QtCore/QtNumeric>
+#include <QtCore/QDateTime>
+#include <QtCore/QTimeZone>
 
 #include <algorithm>
 
 QT_BEGIN_NAMESPACE
 
-#define USE_NMEA_PIMPL 0
+#define USE_POSITION_NMEA_PIMPL 0
 
-#if USE_NMEA_PIMPL
+#if USE_POSITION_NMEA_PIMPL
 class QGeoPositionInfoPrivateNmea : public QGeoPositionInfoPrivate
 {
 public:
@@ -100,7 +102,7 @@ static bool mergePositions(QGeoPositionInfo &dst, const QGeoPositionInfo &src, Q
     updated |= propagateDate(dst, src);
     updated |= propagateAttributes(dst, src);
 
-#if USE_NMEA_PIMPL
+#if USE_POSITION_NMEA_PIMPL
     QGeoPositionInfoPrivateNmea *dstPimpl = static_cast<QGeoPositionInfoPrivateNmea *>(QGeoPositionInfoPrivate::get(dst));
     dstPimpl->nmeaSentences.append(nmeaSentence);
 #else
@@ -119,6 +121,9 @@ static qint64 msecsTo(const QDateTime &from, const QDateTime &to)
 
     return from.msecsTo(to);
 }
+
+QNmeaReader::~QNmeaReader()
+    = default;
 
 QNmeaRealTimeReader::QNmeaRealTimeReader(QNmeaPositionInfoSourcePrivate *sourcePrivate)
         : QNmeaReader(sourcePrivate), m_update(*new QGeoPositionInfoPrivateNmea)
@@ -145,6 +150,9 @@ QNmeaRealTimeReader::QNmeaRealTimeReader(QNmeaPositionInfoSourcePrivate *sourceP
     m_pushDelay = pushDelay;
 }
 
+QNmeaRealTimeReader::~QNmeaRealTimeReader()
+    = default;
+
 void QNmeaRealTimeReader::readAvailableData()
 {
     while (m_proxy->m_device->canReadLine()) {
@@ -156,9 +164,13 @@ void QNmeaRealTimeReader::readAvailableData()
 
         char buf[1024];
         qint64 size = m_proxy->m_device->readLine(buf, sizeof(buf));
+        if (size <= 0)
+            continue;
+
         const bool oldFix = m_hasFix;
         bool hasFix;
-        const bool parsed = m_proxy->parsePosInfoFromNmeaData(buf, size, &pos, &hasFix);
+        const bool parsed = m_proxy->parsePosInfoFromNmeaData(
+            QByteArrayView{buf, static_cast<qsizetype>(size)}, &pos, &hasFix);
 
         if (!parsed) {
             // got garbage, don't stop the timer
@@ -213,7 +225,7 @@ void QNmeaRealTimeReader::readAvailableData()
             }
         } else {
             // there was no info with valid TS. Overwrite with whatever is parsed.
-#if USE_NMEA_PIMPL
+#if USE_POSITION_NMEA_PIMPL
             pimpl->nmeaSentences.append(QByteArray(buf, size));
 #endif
             propagateAttributes(pos, m_update);
@@ -335,7 +347,8 @@ static int processSentence(QGeoPositionInfo &info,
 
         QGeoPositionInfoPrivateNmea *pimpl = new QGeoPositionInfoPrivateNmea;
         QGeoPositionInfo pos(*pimpl);
-        if (m_proxy->parsePosInfoFromNmeaData(buf, size, &pos, &hasFix)) {
+        if (m_proxy->parsePosInfoFromNmeaData(
+                QByteArrayView{buf, static_cast<qsizetype>(size)}, &pos, &hasFix)) {
             // Date may or may not be valid, as some packets do not have date.
             // If date isn't valid, match is performed on time only.
             // Hence, make sure that packet blocks are generated with
@@ -362,7 +375,7 @@ static int processSentence(QGeoPositionInfo &info,
                 }
             } else {
                 // there was no info with valid TS. Overwrite with whatever is parsed.
-#if USE_NMEA_PIMPL
+#if USE_POSITION_NMEA_PIMPL
                 pimpl->nmeaSentences.append(QByteArray(buf, size));
 #endif
                 info = pos;
@@ -522,10 +535,10 @@ void QNmeaPositionInfoSourcePrivate::prepareSourceDevice()
     }
 }
 
-bool QNmeaPositionInfoSourcePrivate::parsePosInfoFromNmeaData(const char *data, int size,
+bool QNmeaPositionInfoSourcePrivate::parsePosInfoFromNmeaData(QByteArrayView data,
         QGeoPositionInfo *posInfo, bool *hasFix)
 {
-    return m_source->parsePosInfoFromNmeaData(data, size, posInfo, hasFix);
+    return m_source->parsePosInfoFromNmeaData(data, posInfo, hasFix);
 }
 
 void QNmeaPositionInfoSourcePrivate::startUpdates()
@@ -623,7 +636,7 @@ void QNmeaPositionInfoSourcePrivate::notifyNewUpdate(QGeoPositionInfo *update, b
         // some sentence have time but no date
         QTime time = update->timestamp().time();
         if (time.isValid() && m_currentDate.isValid())
-            update->setTimestamp(QDateTime(m_currentDate, time, Qt::UTC));
+            update->setTimestamp(QDateTime(m_currentDate, time, QTimeZone::UTC));
     }
 
     // Some attributes are sent in separate NMEA sentences. Save and restore the accuracy
@@ -801,12 +814,32 @@ double QNmeaPositionInfoSource::userEquivalentRangeError() const
     Returns true if the sentence was successfully parsed, otherwise returns false and should not
     modifiy \a posInfo or \a hasFix.
 */
+
+#if QT_DEPRECATED_SINCE(7, 0)
 bool QNmeaPositionInfoSource::parsePosInfoFromNmeaData(const char *data, int size,
-        QGeoPositionInfo *posInfo, bool *hasFix)
+                                                       QGeoPositionInfo *posInfo, bool *hasFix)
 {
-    return QLocationUtils::getPosInfoFromNmea(data, size, posInfo, d->m_userEquivalentRangeError,
-                                              hasFix);
+#if QT_VERSION < QT_VERSION_CHECK(7, 0, 0)
+    return QLocationUtils::getPosInfoFromNmea(QByteArrayView{data, size}, posInfo,
+                                              d->m_userEquivalentRangeError, hasFix);
+#else
+    return parsePosInfoFromNmeaData(QByteArrayView{data, size}, posInfo, hasFix);
+#endif
 }
+#endif // QT_DEPRECATED_SINCE(7, 0)
+
+bool QNmeaPositionInfoSource::parsePosInfoFromNmeaData(QByteArrayView data,
+                                                       QGeoPositionInfo *posInfo, bool *hasFix)
+{
+#if QT_VERSION < QT_VERSION_CHECK(7, 0, 0)
+    return parsePosInfoFromNmeaData(data.data(), static_cast<int>(data.size()),
+                                                             posInfo, hasFix);
+#else
+    return QLocationUtils::getPosInfoFromNmea(data, posInfo,
+                                              d->m_userEquivalentRangeError, hasFix);
+#endif
+}
+
 
 /*!
     Returns the update mode.

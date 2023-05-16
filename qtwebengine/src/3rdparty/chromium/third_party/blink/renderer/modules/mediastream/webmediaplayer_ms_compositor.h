@@ -1,4 +1,4 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
+// Copyright 2015 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -24,7 +24,6 @@
 #include "third_party/blink/renderer/modules/mediastream/video_renderer_algorithm_wrapper.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
-#include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
 
 namespace base {
 class SingleThreadTaskRunner;
@@ -46,7 +45,6 @@ class SurfaceId;
 namespace blink {
 class MediaStreamDescriptor;
 class WebMediaPlayerMS;
-struct WebMediaPlayerMSCompositorTraits;
 
 // This class is designed to handle the work load on compositor thread for
 // WebMediaPlayerMS. It will be instantiated on the main thread, but destroyed
@@ -58,19 +56,23 @@ struct WebMediaPlayerMSCompositorTraits;
 // Otherwise, WebMediaPlayerMSCompositor will simply store the most recent
 // frame, and submit it whenever asked by the compositor.
 class MODULES_EXPORT WebMediaPlayerMSCompositor
-    : public cc::VideoFrameProvider,
-      public WTF::ThreadSafeRefCounted<WebMediaPlayerMSCompositor,
-                                       WebMediaPlayerMSCompositorTraits> {
+    : public cc::VideoFrameProvider {
  public:
   using OnNewFramePresentedCB = base::OnceClosure;
+
+  struct Metadata {
+    gfx::Size natural_size = gfx::Size();
+    media::VideoTransformation video_transform = media::kNoTransformation;
+  };
 
   WebMediaPlayerMSCompositor(
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
       MediaStreamDescriptor* media_stream_descriptor,
       std::unique_ptr<WebVideoFrameSubmitter> submitter,
-      WebMediaPlayer::SurfaceLayerMode surface_layer_mode,
+      bool use_surface_layer,
       const base::WeakPtr<WebMediaPlayerMS>& player);
+  ~WebMediaPlayerMSCompositor() override;
 
   WebMediaPlayerMSCompositor(const WebMediaPlayerMSCompositor&) = delete;
   WebMediaPlayerMSCompositor& operator=(const WebMediaPlayerMSCompositor&) =
@@ -84,17 +86,14 @@ class MODULES_EXPORT WebMediaPlayerMSCompositor
   void EnqueueFrame(scoped_refptr<media::VideoFrame> frame, bool is_copy);
 
   // Statistical data
-  gfx::Size GetCurrentSize();
-  base::TimeDelta GetCurrentTime();
   size_t total_frame_count();
   size_t dropped_frame_count();
 
   // Signals the VideoFrameSubmitter to prepare to receive BeginFrames and
   // submit video frames given by WebMediaPlayerMSCompositor.
-  virtual void EnableSubmission(
-      const viz::SurfaceId& id,
-      media::VideoTransformation transformation,
-      bool force_submit);
+  virtual void EnableSubmission(const viz::SurfaceId& id,
+                                media::VideoTransformation transformation,
+                                bool force_submit);
 
   // Notifies the |submitter_| that the frames must be submitted.
   void SetForceSubmit(bool force_submit);
@@ -111,14 +110,11 @@ class MODULES_EXPORT WebMediaPlayerMSCompositor
   scoped_refptr<media::VideoFrame> GetCurrentFrame() override;
   void PutCurrentFrame() override;
   base::TimeDelta GetPreferredRenderInterval() override;
+  void OnContextLost() override;
 
   void StartRendering();
   void StopRendering();
   void ReplaceCurrentFrameWithACopy();
-
-  // Tell |video_frame_provider_client_| to stop using this instance in
-  // preparation for dtor.
-  void StopUsingProvider();
 
   // Sets a hook to be notified when a new frame is presented, to fulfill a
   // prending video.requestAnimationFrame() request.
@@ -140,11 +136,11 @@ class MODULES_EXPORT WebMediaPlayerMSCompositor
   // requestVideoFrameCallback() API when the video is offscreen.
   void SetForceBeginFrames(bool enable);
 
+  // Gets metadata which is available after kReadyStateHaveMetadata state.
+  Metadata GetMetadata();
+
  private:
-  friend class WTF::ThreadSafeRefCounted<WebMediaPlayerMSCompositor,
-                                         WebMediaPlayerMSCompositorTraits>;
   friend class WebMediaPlayerMSTest;
-  friend struct WebMediaPlayerMSCompositorTraits;
 
   // Struct used to keep information about frames pending in
   // |rendering_frame_buffer_|.
@@ -154,8 +150,6 @@ class MODULES_EXPORT WebMediaPlayerMSCompositor
     base::TimeTicks reference_time;
     bool is_copy;
   };
-
-  ~WebMediaPlayerMSCompositor() override;
 
   // Ran on the |video_frame_compositor_task_runner_| to initialize
   // |submitter_|
@@ -202,8 +196,6 @@ class MODULES_EXPORT WebMediaPlayerMSCompositor
 
   void StartRenderingInternal();
   void StopRenderingInternal();
-  void StopUsingProviderInternal();
-  void ReplaceCurrentFrameWithACopyInternal();
 
   void SetAlgorithmEnabledForTesting(bool algorithm_enabled);
   void RecordFrameDisplayedStats(base::TimeTicks frame_displayed_time);
@@ -211,6 +203,8 @@ class MODULES_EXPORT WebMediaPlayerMSCompositor
       absl::optional<base::TimeTicks> frame_received_time,
       absl::optional<base::TimeDelta> frame_processing_time,
       absl::optional<uint32_t> frame_rtp_timestamp);
+
+  void SetMetadata();
 
   // Used for DCHECKs to ensure method calls executed in the correct thread,
   // which is renderer main thread in this class.
@@ -242,6 +236,10 @@ class MODULES_EXPORT WebMediaPlayerMSCompositor
   // however read on the compositor and main thread so locking is required
   // around all modifications and all reads on the any thread.
   scoped_refptr<media::VideoFrame> current_frame_;
+
+  // |current_metadata_| is the pipeline metadata extracted from the
+  // |current_frame_|.
+  Metadata current_metadata_ GUARDED_BY(current_frame_lock_);
 
   // |rendering_frame_buffer_| stores the incoming frames, and provides a frame
   // selection method which returns the best frame for the render interval.
@@ -304,16 +302,11 @@ class MODULES_EXPORT WebMediaPlayerMSCompositor
   cc::UpdateSubmissionStateCB update_submission_state_callback_;
 
   // |current_frame_lock_| protects |current_frame_|, |rendering_frame_buffer_|,
-  // |dropped_frame_count_|, and |render_started_|.
+  // |dropped_frame_count_|, |current_metadata_| and |render_started_|.
   base::Lock current_frame_lock_;
 
+  base::WeakPtr<WebMediaPlayerMSCompositor> weak_this_;
   base::WeakPtrFactory<WebMediaPlayerMSCompositor> weak_ptr_factory_{this};
-};
-
-struct WebMediaPlayerMSCompositorTraits {
-  // Ensure destruction occurs on main thread so that "Web" and other resources
-  // are destroyed on the correct thread.
-  static void Destruct(const WebMediaPlayerMSCompositor* player);
 };
 
 }  // namespace blink

@@ -7,7 +7,6 @@
 #include "qqmlengine_p.h"
 #include <private/qqmlrefcount_p.h>
 #include "qqmlengine_p.h"
-#include "qqmlexpression_p.h"
 #include "qqmlglobal_p.h"
 #include <private/qv4domerrors_p.h>
 #include <private/qv4engine_p.h>
@@ -1513,11 +1512,8 @@ QStringDecoder QQmlXMLHttpRequest::findTextDecoder() const
         decoder = QStringDecoder(reader.documentEncoding().toString().toUtf8());
     }
 
-    if (!decoder.isValid() && m_mime == "text/html") {
-        auto encoding = QStringConverter::encodingForHtml(m_responseEntityBody);
-        if (encoding)
-            decoder = QStringDecoder(*encoding);
-    }
+    if (!decoder.isValid() && m_mime == "text/html")
+        decoder = QStringDecoder::decoderForHtml(m_responseEntityBody);
 
     if (!decoder.isValid()) {
         auto encoding = QStringConverter::encodingForData(m_responseEntityBody);

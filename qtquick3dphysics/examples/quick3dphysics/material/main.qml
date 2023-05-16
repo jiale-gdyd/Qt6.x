@@ -14,7 +14,9 @@ Window {
     visible: true
     title: qsTr("Qt Quick 3D Physics - Material example")
 
-    DynamicsWorld {}
+    PhysicsWorld {
+        scene: viewport.scene
+    }
 
     View3D {
         id: viewport
@@ -28,7 +30,7 @@ Window {
 
         PerspectiveCamera {
             position: Qt.vector3d(0, 500, 1500)
-            eulerRotation : Qt.vector3d(-20, 0, 0)
+            eulerRotation: Qt.vector3d(-20, 0, 0)
             clipFar: 10000
             clipNear: 10
         }
@@ -69,8 +71,9 @@ Window {
         DynamicRigidBody {
             id: box
             physicsMaterial: physicsMaterial
+            massMode: DynamicRigidBody.CustomDensity
             density: 10
-            property var startPosition: Qt.vector3d(700, 300, 0)
+            property vector3d startPosition: Qt.vector3d(700, 300, 0)
             position: startPosition
             Model {
                 source: "#Cube"

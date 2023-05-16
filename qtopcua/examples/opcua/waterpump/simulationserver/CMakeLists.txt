@@ -1,7 +1,8 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 cmake_minimum_required(VERSION 3.16)
 project(simulationserver LANGUAGES CXX C)
-
-set(CMAKE_AUTOMOC ON)
 
 if(NOT DEFINED INSTALL_EXAMPLESDIR)
     set(INSTALL_EXAMPLESDIR "examples")
@@ -11,9 +12,12 @@ set(INSTALL_EXAMPLEDIR "${INSTALL_EXAMPLESDIR}/opcua/waterpump/simulationserver"
 
 find_package(Qt6 REQUIRED COMPONENTS Core OpcUa)
 
-if (EXISTS ../../../../../../../${QT_REPO_MODULE_VERSION}/Automation/sources/qtopcua/)
-    set(MODULE_SOURCE ../../../../../../../${QT_REPO_MODULE_VERSION}/Automation/sources/qtopcua/)
+qt_standard_project_setup()
+
+if (EXISTS ../../../../../${Qt6_VERSION}/Src/qtopcua/)
+    set(MODULE_SOURCE ../../../../../${Qt6_VERSION}/Src/qtopcua/)
 else()
+    # Build from source tree
     set(MODULE_SOURCE ../../../../)
 endif()
 
@@ -29,14 +33,14 @@ set_target_properties(simulationserver PROPERTIES
     MACOSX_BUNDLE TRUE
 )
 
-target_include_directories(simulationserver PUBLIC
+target_include_directories(simulationserver PRIVATE
     ${MODULE_SOURCE}/src/plugins/opcua/open62541
 )
 
-target_link_libraries(simulationserver PUBLIC
-    Qt::Core
-    Qt::OpcUa
-    Qt::OpcUaPrivate
+target_link_libraries(simulationserver PRIVATE
+    Qt6::Core
+    Qt6::OpcUa
+    Qt6::OpcUaPrivate
 )
 
 if (QT_FEATURE_open62541 AND NOT QT_FEATURE_system_open62541)
@@ -66,7 +70,7 @@ if (QT_FEATURE_open62541 AND NOT QT_FEATURE_system_open62541)
             PROPERTIES LANGUAGE CXX)
         set_source_files_properties(${MODULE_SOURCE}/src/3rdparty/open62541/open62541.c
             PROPERTIES COMPILE_OPTIONS
-                "/Zc:strictStrings-;/permissive;/wd2362")
+                "/Zc:strictStrings-;/permissive;/wd4200")
     endif()
 endif()
 

@@ -36,23 +36,28 @@ typedef enum {
 } GstPlayFlags;
 
 
-
-QGstreamerAudioDecoder::QGstreamerAudioDecoder(QAudioDecoder *parent)
-    : QPlatformAudioDecoder(parent),
-    m_playbin(GST_PIPELINE_CAST(QGstElement("playbin", "playbin").element()))
+QMaybe<QPlatformAudioDecoder *> QGstreamerAudioDecoder::create(QAudioDecoder *parent)
 {
-    if (m_playbin.isNull()) {
-        // ### set error
-        return;
-    }
+    QGstElement audioconvert("audioconvert", "audioconvert");
+    if (!audioconvert)
+        return errorMessageCannotFindElement("audioconvert");
 
+    QGstPipeline playbin = GST_PIPELINE_CAST(QGstElement("playbin", "playbin").element());
+    if (!playbin)
+        return errorMessageCannotFindElement("playbin");
+
+    return new QGstreamerAudioDecoder(playbin, audioconvert, parent);
+}
+
+QGstreamerAudioDecoder::QGstreamerAudioDecoder(QGstPipeline playbin, QGstElement audioconvert,
+                                               QAudioDecoder *parent)
+    : QPlatformAudioDecoder(parent), m_playbin(playbin), m_audioConvert(audioconvert)
+{
     // Sort out messages
     m_playbin.installMessageFilter(this);
 
     // Set the rest of the pipeline up
     setAudioFlags(true);
-
-    m_audioConvert = QGstElement("audioconvert", "audioconvert");
 
     m_outputBin = QGstBin("audio-output-bin");
     m_outputBin.add(m_audioConvert);
@@ -61,7 +66,8 @@ QGstreamerAudioDecoder::QGstreamerAudioDecoder(QAudioDecoder *parent)
     m_outputBin.addGhostPad(m_audioConvert, "sink");
 
     g_object_set(m_playbin.object(), "audio-sink", m_outputBin.element(), NULL);
-    g_signal_connect(m_playbin.object(), "deep-notify::source", (GCallback) &QGstreamerAudioDecoder::configureAppSrcElement, (gpointer)this);
+    g_signal_connect(m_playbin.object(), "deep-notify::source",
+                     (GCallback)&QGstreamerAudioDecoder::configureAppSrcElement, (gpointer)this);
 
     // Set volume to 100%
     gdouble volume = 1.0;
@@ -70,9 +76,6 @@ QGstreamerAudioDecoder::QGstreamerAudioDecoder(QAudioDecoder *parent)
 
 QGstreamerAudioDecoder::~QGstreamerAudioDecoder()
 {
-    if (m_playbin.isNull())
-        return;
-
     stop();
 
 #if QT_CONFIG(gstreamer_app)
@@ -152,6 +155,7 @@ bool QGstreamerAudioDecoder::processBusMessage(const QGstreamerMessage &message)
                 break;
 
             case GST_MESSAGE_EOS:
+                m_playbin.setState(GST_STATE_NULL);
                 finished();
                 break;
 
@@ -269,11 +273,6 @@ void QGstreamerAudioDecoder::setSourceDevice(QIODevice *device)
 
 void QGstreamerAudioDecoder::start()
 {
-    if (m_playbin.isNull()) {
-        processInvalidMedia(QAudioDecoder::ResourceError, QLatin1String("Playbin element is not valid"));
-        return;
-    }
-
     addAppSink();
 
     if (!mSource.isEmpty()) {
@@ -285,8 +284,15 @@ void QGstreamerAudioDecoder::start()
             return;
         }
 
-        if (!m_appSrc)
-            m_appSrc = new QGstAppSrc(this);
+        if (!m_appSrc) {
+            auto maybeAppSrc = QGstAppSrc::create(this);
+            if (maybeAppSrc) {
+                m_appSrc = maybeAppSrc.value();
+            } else {
+                processInvalidMedia(QAudioDecoder::ResourceError, maybeAppSrc.error());
+                return;
+            }
+        }
 
         m_playbin.set("uri", "appsrc://");
     } else {
@@ -297,7 +303,7 @@ void QGstreamerAudioDecoder::start()
     if (m_appSink) {
         if (mFormat.isValid()) {
             setAudioFlags(false);
-            QGstMutableCaps caps = QGstUtils::capsForAudioFormat(mFormat);
+            auto caps = QGstUtils::capsForAudioFormat(mFormat);
             gst_app_sink_set_caps(m_appSink, caps.get());
         } else {
             // We want whatever the native audio format is
@@ -315,9 +321,6 @@ void QGstreamerAudioDecoder::start()
 
 void QGstreamerAudioDecoder::stop()
 {
-    if (m_playbin.isNull())
-        return;
-
     m_playbin.setState(GST_STATE_NULL);
     removeAppSink();
 
@@ -444,9 +447,6 @@ GstFlowReturn QGstreamerAudioDecoder::new_sample(GstAppSink *, gpointer user_dat
 
 void QGstreamerAudioDecoder::setAudioFlags(bool wantNativeAudio)
 {
-    if (m_playbin.isNull())
-        return;
-
     int flags = m_playbin.getInt("flags");
     // make sure not to use GST_PLAY_FLAG_NATIVE_AUDIO unless desired
     // it prevents audio format conversion
@@ -488,10 +488,7 @@ void QGstreamerAudioDecoder::removeAppSink()
 
 void QGstreamerAudioDecoder::updateDuration()
 {
-    int duration = -1;
-
-    if (!m_playbin.isNull())
-        duration = m_playbin.duration() / 1000000;
+    int duration = m_playbin.duration() / 1000000;
 
     if (m_duration != duration) {
         m_duration = duration;
@@ -520,3 +517,5 @@ qint64 QGstreamerAudioDecoder::getPositionFromBuffer(GstBuffer* buffer)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qgstreameraudiodecoder_p.cpp"

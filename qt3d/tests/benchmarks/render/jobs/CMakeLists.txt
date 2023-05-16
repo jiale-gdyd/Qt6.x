@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from jobs.pro.
 
 #####################################################################
@@ -9,7 +12,7 @@ qt_internal_add_benchmark(tst_bench_jobs
         tst_bench_jobs.cpp
     DEFINES
         QT3D_RENDER_UNIT_TESTS
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Qml
         Qt::Test
         Qt::3DExtras

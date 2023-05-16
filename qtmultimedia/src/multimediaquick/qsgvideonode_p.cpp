@@ -5,7 +5,6 @@
 #include <QtQuick/qsgmaterial.h>
 #include "qsgvideotexture_p.h"
 #include <QtMultimedia/private/qvideotexturehelper_p.h>
-#include <private/qabstractvideobuffer_p.h>
 #include <private/qquicktextnode_p.h>
 #include <private/qquickvideooutput_p.h>
 #include <private/qabstractvideobuffer_p.h>
@@ -129,6 +128,7 @@ void QSGVideoMaterial::updateTextures(QRhi *rhi, QRhiResourceUpdateBatch *resour
     m_videoFrameTextures = QVideoTextureHelper::createTextures(m_currentFrame, rhi, resourceUpdates, std::move(m_videoFrameTextures));
     for (int plane = 0; plane < 3; ++plane)
         m_textures[plane]->setRhiTexture(m_videoFrameTextures->texture(plane));
+    m_texturesDirty = false;
 }
 
 

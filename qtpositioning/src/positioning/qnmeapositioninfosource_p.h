@@ -48,8 +48,7 @@ public:
     void stopUpdates();
     void requestUpdate(int msec);
 
-    bool parsePosInfoFromNmeaData(const char *data,
-                                  int size,
+    bool parsePosInfoFromNmeaData(QByteArrayView data,
                                   QGeoPositionInfo *posInfo,
                                   bool *hasFix);
 
@@ -98,7 +97,7 @@ class QNmeaReader
 public:
     explicit QNmeaReader(QNmeaPositionInfoSourcePrivate *sourcePrivate)
             : m_proxy(sourcePrivate) {}
-    virtual ~QNmeaReader() {}
+    virtual ~QNmeaReader();
 
     virtual void readAvailableData() = 0;
 
@@ -111,6 +110,8 @@ class QNmeaRealTimeReader : public QNmeaReader
 {
 public:
     explicit QNmeaRealTimeReader(QNmeaPositionInfoSourcePrivate *sourcePrivate);
+    ~QNmeaRealTimeReader() override;
+
     void readAvailableData() override;
     void notifyNewUpdate();
 

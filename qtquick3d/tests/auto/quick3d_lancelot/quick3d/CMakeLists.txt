@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from quick3d.pro.
 
 #####################################################################
@@ -15,10 +18,10 @@ qt_internal_add_test(tst_qquick3d
         ../shared/qbaselinetest.cpp ../shared/qbaselinetest.h
         tst_quick3d.cpp
     DEFINES
-        QMAKESPEC=\\\"\\\"
+        QMAKESPEC=""
     INCLUDE_DIRECTORIES
         ../shared
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Gui
         Qt::Network
     TESTDATA ${test_data}

@@ -4,6 +4,11 @@
 #ifndef QMODBUSRTUSERIALSERVER_H
 #define QMODBUSRTUSERIALSERVER_H
 
+// The pragma is required to generate proper headers for source compatibility.
+#if 0
+#pragma qt_deprecated(QModbusRtuSerialSlave)
+#endif
+
 #include <QtSerialBus/qmodbusserver.h>
 
 QT_BEGIN_NAMESPACE

@@ -14,15 +14,16 @@ Window {
     visible: true
     title: qsTr("PhysX Physics Demo")
 
-    DynamicsWorld {
+    PhysicsWorld {
         id: physicsWorld
         gravity: Qt.vector3d(0, -9.81, 0)
         running: false
-        forceDebugView: true
-        minTimestep: minTimestepSlider.value
-        maxTimestep: maxTimestepSlider.value
+        forceDebugDraw: true
+        minimumTimestep: minTimestepSlider.value
+        maximumTimestep: maxTimestepSlider.value
         typicalLength: 1
         typicalSpeed: 10
+        scene: viewport.scene
     }
 
     View3D {
@@ -114,8 +115,8 @@ Window {
                 SequentialAnimation {
                      running: physicsWorld.running
                      loops: Animation.Infinite;
-                     NumberAnimation {target: impeller; property: "x"; from: -3; to:  3; duration: 2000 }
-                     NumberAnimation {target: impeller; property: "x"; from:  3; to: -3; duration: 2000 }
+                     NumberAnimation {target: impeller; property: "kinematicPosition.x"; from: -3; to:  3; duration: 2000 }
+                     NumberAnimation {target: impeller; property: "kinematicPosition.x"; from:  3; to: -3; duration: 2000 }
                 }
 
                 Model {
@@ -225,11 +226,11 @@ Window {
             function doImpulse() {
                 for (var i = 0; i < instancesBoxes.length; i++) {
                     let box = instancesBoxes[i];
-                    box.applyCentralImpulse(Qt.vector3d(0,100,0));
+                    box.applyCentralImpulse(Qt.vector3d(0,0.01,0));
                 }
                 for (i = 0; i < instancesSpheres.length; i++) {
                     let sphere = instancesSpheres[i];
-                    sphere.applyCentralImpulse(Qt.vector3d(0,100,0));
+                    sphere.applyCentralImpulse(Qt.vector3d(0,0.01,0));
                 }
             }
 
@@ -268,21 +269,25 @@ Window {
                 var i;
                 for (i = 0; i < instancesSpheres.length; i++) {
                     let sphere = instancesSpheres[i];
-                    sphere.axisLockAngularX = lockAngularX.checked;
-                    sphere.axisLockAngularY = lockAngularY.checked;
-                    sphere.axisLockAngularZ = lockAngularZ.checked;
-                    sphere.axisLockLinearX  = lockLinearX.checked;
-                    sphere.axisLockLinearY  = lockLinearY.checked;
-                    sphere.axisLockLinearZ  = lockLinearZ.checked;
+                    sphere.angularAxisLock =
+                            (lockAngularX.checked ? DynamicRigidBody.LockX : 0) |
+                            (lockAngularY.checked ? DynamicRigidBody.LockY : 0) |
+                            (lockAngularZ.checked ? DynamicRigidBody.LockZ : 0);
+                    sphere.linearAxisLock =
+                            (lockLinearX.checked ? DynamicRigidBody.LockX : 0) |
+                            (lockLinearY.checked ? DynamicRigidBody.LockY : 0) |
+                            (lockLinearZ.checked ? DynamicRigidBody.LockZ : 0);
                 }
                 for (i = 0; i < instancesBoxes.length; i++) {
                     let box = instancesBoxes[i];
-                    box.axisLockAngularX = lockAngularX.checked;
-                    box.axisLockAngularY = lockAngularY.checked;
-                    box.axisLockAngularZ = lockAngularZ.checked;
-                    box.axisLockLinearX  = lockLinearX.checked;
-                    box.axisLockLinearY  = lockLinearY.checked;
-                    box.axisLockLinearZ  = lockLinearZ.checked;
+                    box.angularAxisLock =
+                            (lockAngularX.checked ? DynamicRigidBody.LockX : 0) |
+                            (lockAngularY.checked ? DynamicRigidBody.LockY : 0) |
+                            (lockAngularZ.checked ? DynamicRigidBody.LockZ : 0);
+                    box.linearAxisLock =
+                            (lockLinearX.checked ? DynamicRigidBody.LockX : 0) |
+                            (lockLinearY.checked ? DynamicRigidBody.LockY : 0) |
+                            (lockLinearZ.checked ? DynamicRigidBody.LockZ : 0);
                 }
             }
 
@@ -311,7 +316,7 @@ Window {
             if (event.key === Qt.Key_Space) {
                 physicsWorld.running = !physicsWorld.running
             } else if (event.key === Qt.Key_H) {
-                physicsWorld.forceDebugView = !physicsWorld.forceDebugView
+                physicsWorld.forceDebugDraw = !physicsWorld.forceDebugDraw
             }
             else if (event.key === Qt.Key_J) {
                 floor.eulerRotation.x = (360 + floor.eulerRotation.x - 1) % 360
@@ -393,7 +398,6 @@ Window {
             onCheckedChanged: shapeSpawner.setKinematic()
         }
 
-
         Button {
             text:  "Add impulse"
             onClicked: shapeSpawner.doImpulse()
@@ -421,51 +425,8 @@ Window {
             value: 50
         }
 
-
         Label {
-            text: "Sphere mass: " + massSlider.value
-        }
-        Slider {
-            id: massSlider
-            focusPolicy: Qt.NoFocus
-            from: 1
-            to: 360
-            value: 1
-        }
-        Label {
-            text: "Static friction: " + staticFrictionSlider.value
-        }
-        Slider {
-            id: staticFrictionSlider
-            focusPolicy: Qt.NoFocus
-            from: 0
-            to: 100000
-            value: 500
-        }
-
-        Label {
-            text: "Dynamic friction: " + dynamicFrictionSlider.value
-        }
-        Slider {
-            id: dynamicFrictionSlider
-            focusPolicy: Qt.NoFocus
-            from: 0
-            to: 100000
-            value: 500
-        }
-
-        Label {
-            text: "Restitution: " + restitutionSlider.value
-        }
-        Slider {
-            id: restitutionSlider
-            focusPolicy: Qt.NoFocus
-            from: 0
-            to: 1
-            value: 0
-        }
-        Label {
-            text: "Debug view (forced): " + physicsWorld.forceDebugView
+            text: "Debug view (forced): " + physicsWorld.forceDebugDraw
         }
     }
 }

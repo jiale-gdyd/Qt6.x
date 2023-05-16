@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR GPL-3.0-only WITH Qt-GPL-exception-1.0
 
 #include "mockcompositor.h"
-#include <QtOpenGL/QOpenGLWindow>
 #include <QtGui/QRasterWindow>
 #include <QtGui/qpa/qplatformnativeinterface.h>
 #include <QtWaylandClient/private/wayland-wayland-client-protocol.h>
@@ -19,6 +18,7 @@ private slots:
     void basicConfigure();
     void configureSize();
     void configureStates();
+    void configureBounds();
     void popup();
     void tooltipOnPopup();
     void tooltipAndSiblingPopup();
@@ -168,6 +168,30 @@ void tst_xdgshell::configureStates()
     QCOMPARE(window.frameGeometry().size(), windowedSize);
 //    QCOMPARE(window.frameGeometry().topLeft(), QPoint()); // TODO: this doesn't currently work when window decorations are enabled
     QVERIFY(qunsetenv("QT_WAYLAND_FRAME_CALLBACK_TIMEOUT"));
+}
+
+void tst_xdgshell::configureBounds()
+{
+    QRasterWindow window;
+    window.resize(1280, 1024);
+    window.show();
+    QCOMPOSITOR_TRY_VERIFY(xdgToplevel());
+
+    // Take xdg_toplevel.configure_bounds into account only if the configure event has 0x0 size.
+    const uint serial1 = exec([=] {
+        xdgToplevel()->sendConfigureBounds(QSize(800, 600));
+        return xdgToplevel()->sendCompleteConfigure(QSize(0, 0), { XdgToplevel::state_activated });
+    });
+    QCOMPOSITOR_TRY_COMPARE(xdgSurface()->m_committedConfigureSerial, serial1);
+    QCOMPARE(window.frameGeometry().size(), QSize(800, 600));
+
+    // Window size in xdg_toplevel configure events takes precedence over the configure bounds.
+    const uint serial2 = exec([=] {
+        xdgToplevel()->sendConfigureBounds(QSize(800, 600));
+        return xdgToplevel()->sendCompleteConfigure(QSize(1600, 900), { XdgToplevel::state_activated });
+    });
+    QCOMPOSITOR_TRY_COMPARE(xdgSurface()->m_committedConfigureSerial, serial2);
+    QCOMPARE(window.frameGeometry().size(), QSize(1600, 900));
 }
 
 void tst_xdgshell::popup()

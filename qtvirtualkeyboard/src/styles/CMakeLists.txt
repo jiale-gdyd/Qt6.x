@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 set(styles_imports)
 if(NOT QT_FEATURE_vkb_no_builtin_style)
     add_subdirectory(builtin)

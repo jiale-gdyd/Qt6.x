@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #####################################################################
 ## sensorclerk Binary:
 #####################################################################
@@ -7,7 +10,7 @@ qt_internal_add_manual_test(tst_manual_sensor_clerk
     SOURCES
         collector.cpp collector.h
         main.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Gui
         Qt::Quick
         Qt::Sensors

@@ -102,7 +102,7 @@ public:
             return false;
 
         // maximum permitted payload size in CAN or CAN FD
-        const int length = load.size();
+        const qsizetype length = load.size();
         if (isFlexibleDataRate) {
             if (format == RemoteRequestFrame)
                 return false;

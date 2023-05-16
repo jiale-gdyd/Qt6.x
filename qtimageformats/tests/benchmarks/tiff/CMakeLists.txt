@@ -1,4 +1,5 @@
-# Generated from tiff.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## tst_bench_qtiff Binary:
@@ -7,7 +8,7 @@
 qt_internal_add_benchmark(tst_bench_qtiff
     SOURCES
         tst_qtiff.cpp
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Gui
         Qt::Test
 )

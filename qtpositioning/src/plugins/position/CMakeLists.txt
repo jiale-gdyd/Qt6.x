@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from position.pro.
 
 add_subdirectory(positionpoll)
@@ -10,12 +13,12 @@ endif()
 if(QT_FEATURE_winrt_geolocation)
     add_subdirectory(winrt)
 endif()
-if(IOS OR MACOS OR TVOS)
+if(IOS OR MACOS)
     add_subdirectory(corelocation)
 endif()
 if(ANDROID)
     add_subdirectory(android)
 endif()
-if(TARGET Qt::SerialPort AND TARGET Qt::Network)
+if(TARGET Qt::Network)
     add_subdirectory(nmea)
 endif()

@@ -12,7 +12,7 @@ source ${CUR_DIR}/funcDefine.sh
 
 export CPU_CORES=$(grep -c processor /proc/cpuinfo)
 
-QT6_VERSION=6.4.2
+QT6_VERSION=6.5.0
 
 CMAKE_BIN=/usr/bin/cmake
 CMAKE_VERSION=$(${CMAKE_BIN} --version)

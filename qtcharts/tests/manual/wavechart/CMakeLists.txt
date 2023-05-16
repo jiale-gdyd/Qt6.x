@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from wavechart.pro.
 
 #####################################################################
@@ -9,7 +12,7 @@ qt_internal_add_manual_test(wavechart
     SOURCES
         main.cpp
         wavechart.cpp wavechart.h
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Charts
         Qt::Gui
         Qt::OpenGL

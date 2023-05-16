@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #####################################################################
 ## tst_qquickwebview Binary:
 #####################################################################
@@ -19,6 +22,7 @@ set(testdata_resource_files
     "html/inputmethod.html"
     "html/scroll.html"
     "html/cookies.html"
+    "html/javascript.html"
 )
 
 qt_internal_add_resource(tst_qquickwebview "testdata"

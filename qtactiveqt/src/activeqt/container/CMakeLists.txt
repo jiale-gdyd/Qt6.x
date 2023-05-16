@@ -1,10 +1,11 @@
-# Generated from container.pro.
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
 
 #####################################################################
 ## AxContainer Module:
 #####################################################################
 
-qt_internal_add_module(AxContainer # special case
+qt_internal_add_module(AxContainer
     STATIC
     QMAKE_MODULE_CONFIG dumpcpp
     SOURCES
@@ -31,6 +32,6 @@ qt_internal_add_module(AxContainer # special case
         uic
 )
 
-#### Keys ignored in scope 1:.:.:container.pro:<TRUE>:
-# MODULE = "axcontainer"
-# MODULE_CONFIG = "dumpcpp"
+set_source_files_properties(qaxbase.cpp # defines QT_CHECK_STATE
+                            qaxscriptwrapper.cpp # references qAxFactory()
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)

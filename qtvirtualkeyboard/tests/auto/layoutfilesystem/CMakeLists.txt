@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from layoutfilesystem.pro.
 
 #####################################################################
@@ -9,10 +12,10 @@ qt_internal_add_test(tst_layoutfilesystem
         ../shared/layouttesthelper.cpp ../shared/layouttesthelper.h
         tst_layoutfilesystem.cpp
     DEFINES
-        SRC_DIR=\\\"${CMAKE_CURRENT_SOURCE_DIR}\\\"
+        SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
     INCLUDE_DIRECTORIES
         ../shared
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Gui
         Qt::Qml
         Qt::Quick
@@ -25,7 +28,7 @@ qt_internal_add_test(tst_layoutfilesystem
 #####################################################################
 
 qt_internal_extend_target(tst_layoutfilesystem CONDITION NOT QT_BUILD_SHARED_LIBS
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::Svg
 )
 

@@ -28,6 +28,7 @@
 #include <olectl.h>
 #include <private/qcoreapplication_p.h>
 #include <qwindow.h>
+#include <private/qpixmap_win_p.h>
 #include <qpa/qplatformnativeinterface.h>
 #include <qabstractnativeeventfilter.h>
 
@@ -882,8 +883,7 @@ HRESULT QClassFactory::CreateInstanceHelper(IUnknown *pUnkOuter, REFIID iid, voi
     // Make sure a QApplication instance is present (inprocess case)
     if (!qApp) {
         qax_ownQApp = true;
-        static int argc = 0; // static lifetime, since it's passed as reference to QApplication, which has a lifetime exceeding the stack frame
-        new QApplication(argc, nullptr);
+        new QApplication(__argc, __argv);
     }
     QGuiApplication::setQuitOnLastWindowClosed(false);
 
@@ -3102,8 +3102,6 @@ HRESULT WINAPI QAxServerBase::Save(LPCOLESTR fileName, BOOL fRemember)
     }
     return E_FAIL;
 }
-
-Q_GUI_EXPORT HBITMAP qt_pixmapToWinHBITMAP(const QPixmap &p, int hbitmapFormat = 0);
 
 //**** IViewObject
 /*

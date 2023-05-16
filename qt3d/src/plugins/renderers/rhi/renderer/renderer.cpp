@@ -1528,6 +1528,9 @@ void Renderer::sendShaderChangesToFrontend(Qt3DCore::QAspectManager *manager)
     const std::vector<HShader> &activeShaders = m_nodesManager->shaderManager()->activeHandles();
     for (const HShader &handle : activeShaders) {
         Shader *s = m_nodesManager->shaderManager()->data(handle);
+        if (!s)
+            continue;
+
         if (s->requiresFrontendSync()) {
             QShaderProgram *frontend =
                     static_cast<decltype(frontend)>(manager->lookupNode(s->peerId()));
@@ -1545,6 +1548,9 @@ void Renderer::sendShaderChangesToFrontend(Qt3DCore::QAspectManager *manager)
     for (const ShaderBuilderUpdate &update : m_shaderBuilderUpdates) {
         QShaderProgramBuilder *builder =
                 static_cast<decltype(builder)>(manager->lookupNode(update.builderId));
+        if (!builder)
+            continue;
+
         QShaderProgramBuilderPrivate *dBuilder =
                 static_cast<decltype(dBuilder)>(QNodePrivate::get(builder));
         dBuilder->setShaderCode(update.shaderCode, update.shaderType);
@@ -1736,7 +1742,7 @@ bool Renderer::prepareGeometryInputBindings(const Geometry *geometry, const RHIS
         //*/
 
         inputBindings[i] = QRhiVertexInputBinding{ binding.stride, binding.classification,
-                                                   int(binding.attributeDivisor) };
+                                                   binding.attributeDivisor };
     }
 
     return true;
@@ -2709,7 +2715,7 @@ bool Renderer::executeCommandsSubmission(const RHIPassInfo &passInfo)
         if (rv->isCompute()) {
             // If we were running draw calls we stop the draw pass
             if (inDraw) {
-                cb->endPass();
+                cb->endPass(m_submissionContext->m_currentUpdates);
                 m_submissionContext->m_currentUpdates = m_submissionContext->rhi()->nextResourceUpdateBatch();
                 inDraw = false;
             }
@@ -2728,7 +2734,7 @@ bool Renderer::executeCommandsSubmission(const RHIPassInfo &passInfo)
         } else {
             // Same logic than above but reversed
             if (inCompute) {
-                cb->endComputePass();
+                cb->endComputePass(m_submissionContext->m_currentUpdates);
                 m_submissionContext->m_currentUpdates = m_submissionContext->rhi()->nextResourceUpdateBatch();
                 inCompute = false;
             }

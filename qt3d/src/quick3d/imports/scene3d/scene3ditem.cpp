@@ -26,6 +26,7 @@
 
 #include <QtGui/qguiapplication.h>
 #include <QtGui/qoffscreensurface.h>
+#include <QtQml/private/qqmlglobal_p.h>
 #include <QtQuick/qquickwindow.h>
 #include <QtQuick/qquickrendercontrol.h>
 
@@ -742,9 +743,13 @@ QSGNode *Scene3DItem::updatePaintNode(QSGNode *node, QQuickItem::UpdatePaintNode
             qCWarning(Scene3D) << "Renderer for Scene3DItem has requested a reset due to the item "
                                   "moving to another window";
             QObject::disconnect(m_windowConnection);
+            // We are in the Render thread, and the m_aspectEngineDestroyer lives in the Main
+            // thread, so we must avoid sending ChildRemoved or ChildAdded events to it with a
+            // QObject::setParent(). QCoreApplication::sendEvent() would fail with "Cannot
+            // send events to objects owned by a different thread."
+            QQml_setParent_noEvent(m_aspectEngine, nullptr);
             // Note: AspectEngine can only be deleted once we have set the root
             // entity on the new instance
-            m_aspectEngine->setParent(nullptr);
             m_aspectToDelete = m_aspectEngine;
             m_aspectEngine = nullptr;
         }
@@ -845,17 +850,17 @@ QSGNode *Scene3DItem::updatePaintNode(QSGNode *node, QQuickItem::UpdatePaintNode
         }
     }
 
+    // Set whether we want the Renderer to be allowed to render or not
+    const bool skipFrame = !needsRender(renderAspect);
+    renderer->setSkipFrame(skipFrame);
+    renderer->allowRender();
+
     // Let the renderer prepare anything it needs to prior to the rendering
     if (m_wasFrameProcessed)
         renderer->beforeSynchronize();
 
     // Force window->beforeRendering to be triggered
     managerNode->markDirty(QSGNode::DirtyForceUpdate);
-
-    // Set whether we want the Renderer to be allowed to render or not
-    const bool skipFrame = !needsRender(renderAspect);
-    renderer->setSkipFrame(skipFrame);
-    renderer->allowRender();
 
     m_wasSGUpdated = true;
 

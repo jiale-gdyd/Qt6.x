@@ -1,15 +1,6 @@
---- .upstream/outputrevision.h	2021-01-20 17:08:05.000000000 +0200
-+++ outputrevision.h	2021-03-19 15:52:02.000000000 +0200
-@@ -3,7 +3,7 @@
- ** Copyright (C) 2016 The Qt Company Ltd.
- ** Contact: https://www.qt.io/licensing/
- **
--** This file is part of the tools applications of the Qt Toolkit.
-+** This file is part of the QtScxml module of the Qt Toolkit.
- **
- ** $QT_BEGIN_LICENSE:GPL-EXCEPT$
- ** Commercial License Usage
-@@ -29,7 +29,13 @@
+--- .upstream/outputrevision.h	2022-06-30 14:11:55.907629780 +0200
++++ outputrevision.h	2022-06-17 10:43:13.000000000 +0200
+@@ -4,7 +4,13 @@
  #ifndef OUTPUTREVISION_H
  #define OUTPUTREVISION_H
  

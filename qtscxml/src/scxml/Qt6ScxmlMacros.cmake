@@ -1,6 +1,6 @@
 # Copyright (C) 2016 Klaralvdalens Datakonsult AB (KDAB).
 # Copyright (C) 2022 The Qt Company Ltd.
-# SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
+# SPDX-License-Identifier: BSD-3-Clause
 
 function(qt6_add_statecharts target_or_outfiles)
     set(options)
@@ -46,8 +46,8 @@ function(qt6_add_statecharts target_or_outfiles)
         get_filename_component(outfilename ${it} NAME_WE)
         get_filename_component(infile ${it} ABSOLUTE)
         set(outfile ${qscxmlcOutputDir}/${outfilename})
-        set(outfile_cpp ${qscxmlcOutputDir}/${outfilename}.cpp)
-        set(outfile_h ${qscxmlcOutputDir}/${outfilename}.h)
+        set(outfile_cpp ${outfile}.cpp)
+        set(outfile_h ${outfile}.h)
 
         add_custom_command(OUTPUT ${outfile_cpp} ${outfile_h}
                            COMMAND

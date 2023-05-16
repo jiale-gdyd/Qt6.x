@@ -96,6 +96,11 @@ void ScriptController::DisableEval(const String& error_message) {
                   error_message);
 }
 
+void ScriptController::SetWasmEvalErrorMessage(const String& error_message) {
+  SetWasmEvalErrorMessageForWorld(DOMWrapperWorld::MainWorld(),
+                                  /*allow_eval=*/false, error_message);
+}
+
 void ScriptController::DisableEvalForIsolatedWorld(
     int32_t world_id,
     const String& error_message) {
@@ -103,6 +108,15 @@ void ScriptController::DisableEvalForIsolatedWorld(
   scoped_refptr<DOMWrapperWorld> world =
       DOMWrapperWorld::EnsureIsolatedWorld(GetIsolate(), world_id);
   SetEvalForWorld(*world, false /* allow_eval */, error_message);
+}
+
+void ScriptController::SetWasmEvalErrorMessageForIsolatedWorld(
+    int32_t world_id,
+    const String& error_message) {
+  DCHECK(DOMWrapperWorld::IsIsolatedWorldId(world_id));
+  scoped_refptr<DOMWrapperWorld> world =
+      DOMWrapperWorld::EnsureIsolatedWorld(GetIsolate(), world_id);
+  SetWasmEvalErrorMessageForWorld(*world, /*allow_eval=*/false, error_message);
 }
 
 void ScriptController::SetEvalForWorld(DOMWrapperWorld& world,
@@ -123,6 +137,28 @@ void ScriptController::SetEvalForWorld(DOMWrapperWorld& world,
     return;
 
   v8_context->SetErrorMessageForCodeGenerationFromStrings(
+      V8String(GetIsolate(), error_message));
+}
+
+void ScriptController::SetWasmEvalErrorMessageForWorld(
+    DOMWrapperWorld& world,
+    bool allow_eval,
+    const String& error_message) {
+  // For now we have nothing to do in case we want to enable wasm-eval.
+  if (allow_eval)
+    return;
+
+  v8::HandleScope handle_scope(GetIsolate());
+  LocalWindowProxy* proxy =
+      world.IsMainWorld()
+          ? window_proxy_manager_->MainWorldProxyMaybeUninitialized()
+          : WindowProxy(world);
+
+  v8::Local<v8::Context> v8_context = proxy->ContextIfInitialized();
+  if (v8_context.IsEmpty())
+    return;
+
+  v8_context->SetErrorMessageForWasmCodeGeneration(
       V8String(GetIsolate(), error_message));
 }
 
@@ -164,33 +200,8 @@ void ScriptController::ExecuteJavaScriptURL(
     const DOMWrapperWorld* world_for_csp) {
   DCHECK(url.ProtocolIsJavaScript());
 
-  const int kJavascriptSchemeLength = sizeof("javascript:") - 1;
-  String script_source = DecodeURLEscapeSequences(
-      url.GetString(), DecodeURLMode::kUTF8OrIsomorphic);
-
   if (!window_->GetFrame())
     return;
-
-  auto* policy = window_->GetContentSecurityPolicyForWorld(world_for_csp);
-  if (csp_disposition == network::mojom::CSPDisposition::CHECK &&
-      !policy->AllowInline(ContentSecurityPolicy::InlineType::kNavigation,
-                           nullptr, script_source, String() /* nonce */,
-                           window_->Url(), EventHandlerPosition().line_)) {
-    return;
-  }
-
-  // TODO(crbug.com/896041): Investigate how trusted type checks can be
-  // implemented for isolated worlds.
-  const bool should_bypass_trusted_type_check =
-      csp_disposition == network::mojom::CSPDisposition::DO_NOT_CHECK ||
-      ContentSecurityPolicy::ShouldBypassMainWorldDeprecated(world_for_csp);
-  script_source = script_source.Substring(kJavascriptSchemeLength);
-  if (!should_bypass_trusted_type_check) {
-    script_source = TrustedTypesCheckForJavascriptURLinNavigation(
-        script_source, window_.Get());
-    if (script_source.IsEmpty())
-      return;
-  }
 
   bool had_navigation_before =
       window_->GetFrame()->Loader().HasProvisionalNavigation();
@@ -198,6 +209,9 @@ void ScriptController::ExecuteJavaScriptURL(
   // https://html.spec.whatwg.org/multipage/browsing-the-web.html#javascript-protocol
   // Step 6. "Let baseURL be settings's API base URL." [spec text]
   const KURL base_url = window_->BaseURL();
+
+  String script_source = window_->CheckAndGetJavascriptUrl(
+      world_for_csp, url, nullptr /* element */, csp_disposition);
 
   // Step 7. "Let script be the result of creating a classic script given
   // scriptSource, settings, baseURL, and the default classic script fetch
@@ -306,7 +320,7 @@ ScriptController::CreateNewInspectorIsolatedWorld(const String& world_name) {
   // Bail out if we could not create an isolated world.
   if (!world)
     return nullptr;
-  if (!world_name.IsEmpty()) {
+  if (!world_name.empty()) {
     DOMWrapperWorld::SetNonMainWorldHumanReadableName(world->GetWorldId(),
                                                       world_name);
   }

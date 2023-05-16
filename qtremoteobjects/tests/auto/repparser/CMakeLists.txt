@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 #####################################################################
 ## tst_parser Test:
 #####################################################################
@@ -9,7 +12,7 @@ qt_internal_add_test(tst_parser
         tst_parser.cpp
     INCLUDE_DIRECTORIES
         ${REPPARSER_DIR}
-    PUBLIC_LIBRARIES
+    LIBRARIES
         Qt::CorePrivate
 )
 

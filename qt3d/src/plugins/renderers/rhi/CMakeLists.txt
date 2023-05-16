@@ -1,3 +1,6 @@
+# Copyright (C) 2022 The Qt Company Ltd.
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Generated from rhi.pro.
 
 set(rhiRendererSources graphicshelpers/submissioncontext.cpp graphicshelpers/submissioncontext_p.h
@@ -19,8 +22,6 @@ set(rhiRendererSources graphicshelpers/submissioncontext.cpp graphicshelpers/sub
     textures/renderbuffer.cpp textures/renderbuffer_p.h
     textures/texture.cpp textures/texture_p.h
 )
-
-find_package(Qt6 REQUIRED COMPONENTS ShaderTools)
 
 #####################################################################
 ## Static library used for Unit Tests:
@@ -93,6 +94,9 @@ qt_internal_add_plugin(RhiRendererPlugin
         Qt::ShaderTools
         Qt::ShaderToolsPrivate
 )
+
+# QTransform conflicts
+set_target_properties(RhiRendererPlugin PROPERTIES UNITY_BUILD OFF)
 
 #### Keys ignored in scope 1:.:.:rhi.pro:<TRUE>:
 # DISTFILES = "rhirenderer.json"

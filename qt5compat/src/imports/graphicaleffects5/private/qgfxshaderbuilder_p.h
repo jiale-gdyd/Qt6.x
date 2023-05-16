@@ -1,3 +1,4 @@
+// Copyright (C) 2022 The Qt Company Ltd.
 // Copyright (C) 2016 Jolla Ltd, author: <gunnar.sletta@jollamobile.com>
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only
 
@@ -11,6 +12,7 @@
 #include <QtGui/private/qshader_p.h>
 
 #include <QtQml/QJSValue>
+#include <QtQml/qqmlregistration.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -19,8 +21,12 @@ class QGfxShaderBuilder : public QObject
 {
     Q_OBJECT
 
+    QML_NAMED_ELEMENT(ShaderBuilder)
+    QML_SINGLETON
+    QML_ADDED_IN_VERSION(5, 0)
 public:
     QGfxShaderBuilder();
+    ~QGfxShaderBuilder() override;
 
     Q_INVOKABLE QVariantMap gaussianBlur(const QJSValue &parameters);
     Q_INVOKABLE QUrl buildVertexShader(const QByteArray &code);
